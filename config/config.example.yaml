@@ -1,0 +1,69 @@
+# AI-Dev Workflow Configuration Example
+# Copy this file and customize for your project
+
+# Project settings
+project:
+  name: "my-project"
+  path: "~/Dev/Repo/my-ios-app"
+  type: "ios"  # ios, android, web
+
+# JIRA settings
+jira:
+  prefix: "PROJ"  # Ticket prefix (e.g., PROJ-12345)
+  base_url: "https://your-company.atlassian.net"
+
+# GitHub settings
+github:
+  org: "my-org"
+  repo: "my-ios-app"
+
+# Cross-platform reference (optional)
+android:
+  enabled: false
+  path: "~/Dev/Repo/my-android-app"
+  repo: "my-org/my-android-app"
+
+# MCP settings
+mcp:
+  codex:
+    enabled: true
+    model: "gpt-4"
+  figma:
+    enabled: true
+    # token: from FIGMA_TOKEN env var
+  apple_docs:
+    enabled: true
+
+# Document output
+output:
+  base_path: ".claude/contexts/work/{project}/docs/ai-dev"
+  # Folder name format: {TICKET}-{description}
+
+# Review settings
+review:
+  lint_command: "swiftlint lint --quiet"
+  build_command: "xcodebuild build -workspace {Project}.xcworkspace -scheme {Scheme}"
+  coderabbit: true
+
+# Debug settings
+debug:
+  test_tag: "[DEBUG]"
+  verbose: false
+
+# Commit settings
+commit:
+  format: "[{TICKET}] {type}({scope}): {subject}"
+  types:
+    - feat
+    - fix
+    - refactor
+    - chore
+    - docs
+    - test
+  scopes:
+    - logic
+    - ui
+    - model
+    - networking
+    - build
+    - test

@@ -1,0 +1,22 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local configs
+config.local.yaml
+*.local.md
+
+# Secrets
+.env
+.env.local
+credentials.json
+
+# Temp files
+*.tmp
+*.bak
