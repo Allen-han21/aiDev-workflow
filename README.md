@@ -43,44 +43,63 @@ cd aiDev-workflow
 ## Workflow Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    AI-Dev Workflow                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  [Input] JIRA Ticket + Figma (optional)                     │
-│                                                             │
-│         ↓                                                   │
-│  Phase 0: ai-dev.analyze [plan mode]                        │
-│  → JIRA query, Figma extraction, codebase analysis          │
-│  → Output: analyze.md                                       │
-│                                                             │
-│         ↓                                                   │
-│  Phase 1: ai-dev.spec [plan mode]                           │
-│  → Claude + Codex cross-check → spec confirmation           │
-│  → Output: spec.md                                          │
-│                                                             │
-│         ↓                                                   │
-│  Phase 2: ai-dev.plan [plan mode]                           │
-│  → Codex MCP planning → Claude verification                 │
-│  → Output: plan.md                                          │
-│                                                             │
-│         ↓ [exit plan mode]                                  │
-│  Phase 3: ai-dev.impl                                       │
-│  → Task-by-task implementation + local commits              │
-│  → Output: source code                                      │
-│                                                             │
-│         ↓                                                   │
-│  Phase 4: ai-dev.review                                     │
-│  → Build/lint verification, code review                     │
-│  → Output: approval/change request                          │
-│                                                             │
-│         ↓ (on approval)                                     │
-│  Phase 5: ai-dev.pr                                         │
-│  → Push, GitHub PR creation                                 │
-│  → Output: PR URL                                           │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    ai-dev 통합 워크플로우                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ENTRY: /ai-dev PK-XXXXX [--figma URL] [--from PHASE]           │
+│         또는 /ai-dev.{analyze|spec|plan|impl|review|pr}         │
+│                                                                 │
+│  ════════ PLAN MODE (분석/설계 전용) ════════                    │
+│                                                                 │
+│  Phase 0: ai-dev.analyze                                        │
+│  └─ JIRA 티켓 + Figma + 코드베이스 분석 → analyze.md            │
+│                                                                 │
+│  Phase 1: ai-dev.spec                                           │
+│  └─ Claude + Codex 크로스 체크 → spec.md                        │
+│                                                                 │
+│  Phase 2: ai-dev.plan                                           │
+│  └─ Codex + Claude 검증으로 구현 계획 → plan.md                 │
+│                                                                 │
+│  ════════ DEVELOPER MODE (코드 작성) ════════                    │
+│                                                                 │
+│  Phase 3: ai-dev.impl                                           │
+│  └─ Task순 구현 → 로컬 커밋 → [allen-test] 로그 → Xcode 실행    │
+│                                                                 │
+│  Phase 4: ai-dev.review                                         │
+│  └─ 린트 + CodeRabbit + Claude 심도 리뷰 → 승인/변경요청       │
+│                                                                 │
+│  Phase 5: ai-dev.pr                                             │
+│  └─ Push + GitHub PR 생성 (표준 템플릿)                         │
+│                                                                 │
+│  OUTPUT: .claude/contexts/work/kidsnote/docs/ai-dev/{폴더}/     │
+│          ├── analyze.md                                         │
+│          ├── spec.md                                            │
+│          ├── plan.md                                            │
+│          └── [소스 코드 + 커밋]                                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+### Phase별 핵심 역할
+
+| Phase | 스킬 | Mode | 핵심 메커니즘 | 출력 |
+|-------|------|------|--------------|------|
+| 0 | `ai-dev.analyze` | Plan | JIRA + Figma + LSP 심볼 탐색 + Android 참조 | `analyze.md` |
+| 1 | `ai-dev.spec` | Plan | Claude + Codex 크로스 체크 (3자 검증) | `spec.md` |
+| 2 | `ai-dev.plan` | Plan | 의존성 그래프 기반 Task 분해 | `plan.md` |
+| 3 | `ai-dev.impl` | Dev | Task별 구현 + 빌드 검증 + 로컬 커밋 | 소스 코드 |
+| 4 | `ai-dev.review` | Dev | 린트 + CodeRabbit + Claude + Codex(--full) | 승인/변경요청 |
+| 5 | `ai-dev.pr` | Dev | JIRA 자동 추출 + 표준 PR 템플릿 | PR URL |
+
+### 의존성 체인
+
+```
+ai-dev.analyze → ai-dev.spec → ai-dev.plan → ai-dev.impl → ai-dev.review → ai-dev.pr
+   (analyze.md)    (spec.md)     (plan.md)      (커밋들)       (판정)         (PR URL)
+```
+
+각 Phase는 이전 Phase의 출력에 의존하며, `--from` 옵션으로 중간부터 시작 가능합니다.
 
 ## Options
 
@@ -106,9 +125,10 @@ cd aiDev-workflow
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md) (Korean)
-- [Workflow Overview](docs/workflow-overview.md) (Korean)
-- [Configuration](docs/configuration.md) (Korean)
+- [Getting Started](docs/getting-started.md) - 시작 가이드
+- [Workflow Overview](docs/workflow-overview.md) - 워크플로우 상세 설명
+- [Configuration](docs/configuration.md) - 설정 방법
+- [Skill System Analysis](docs/ai-dev-skill-analysis.md) - 7개 스킬 시스템 종합 분석 보고서
 
 ## License
 
@@ -118,4 +138,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 **Version**: 4.0
 **Created**: 2026-01-23
-**Updated**: 2026-01-27
+**Updated**: 2026-01-28
