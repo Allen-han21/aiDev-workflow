@@ -20,7 +20,7 @@ description: 분석 결과 기반 스펙 확정. Claude와 Codex 크로스 체�
 ## 사용법
 
 ```bash
-/ai-dev.spec PROJ-XXXXX
+/ai-dev.spec PK-XXXXX
 ```
 
 ---
@@ -36,19 +36,19 @@ description: 분석 결과 기반 스펙 확정. Claude와 Codex 크로스 체�
 
 ```bash
 # 기본 (Codex 사용)
-/ai-dev.spec PROJ-12345
+/ai-dev.spec PK-12345
 
 # Codex 쿼터 절약
-/ai-dev.spec PROJ-12345 --no-codex
+/ai-dev.spec PK-12345 --no-codex
 
 # 복잡한 문제 (ultrathink)
-/ai-dev.spec PROJ-12345 --ultrathink
+/ai-dev.spec PK-12345 --ultrathink
 
 # 복잡한 문제 + Codex 쿼터 없음 (최고 품질)
-/ai-dev.spec PROJ-12345 --no-codex --ultrathink
+/ai-dev.spec PK-12345 --no-codex --ultrathink
 
 # 옵션 먼저도 가능
-/ai-dev.spec --no-codex --ultrathink PROJ-12345
+/ai-dev.spec --no-codex --ultrathink PK-12345
 ```
 
 > **참고**: 옵션 위치는 자유롭습니다.
@@ -60,13 +60,13 @@ description: 분석 결과 기반 스펙 확정. Claude와 Codex 크로스 체�
 ### Step 1: analyze.md 읽기
 
 ```
-.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/analyze.md
+~/.claude/contexts/work/kidsnote/docs/ai-dev/{PK-xxxx-개발내용}/analyze.md
 ```
 
 analyze.md가 없으면 안내:
 ```
 analyze.md가 없습니다.
-먼저 분석을 실행하세요: /ai-dev.analyze PROJ-XXXXX
+먼저 분석을 실행하세요: /ai-dev.analyze PK-XXXXX
 ```
 
 ### Step 2: 모델 최적화 질문 생성
@@ -77,7 +77,7 @@ analyze.md 내용을 기반으로 구조화된 질문 생성:
 ## 스펙 정의 요청
 
 ### 프로젝트 정보
-- 프로젝트: my-ios-app
+- 프로젝트: kidsnote_ios
 - 아키텍처: UIKit + ReactorKit (기존) / SwiftUI + ViewModel (신규)
 - 의존성: RxSwift, SnapKit, Dependencies (pointfreeco)
 
@@ -85,7 +85,7 @@ analyze.md 내용을 기반으로 구조화된 질문 생성:
 {analyze.md 핵심 요약}
 
 ### 분석 파일 참조
-경로: .claude/contexts/work/my-project/docs/ai-dev/{폴더}/analyze.md
+경로: ~/.claude/contexts/work/kidsnote/docs/ai-dev/{폴더}/analyze.md
 
 ### 질문
 1. 이 기능의 핵심 비즈니스 로직은 무엇인가?
@@ -127,7 +127,7 @@ ultrathink해서 다음 요구사항을 분석해줘.
 ```
 mcp__codex__codex(
   prompt: "{모델 최적화 질문}",
-  cwd: "~/Dev/Repo/my-ios-app",
+  cwd: "/Users/allen/Dev/Repo/kidsnote_ios",
   approval-policy: "on-failure",
   sandbox: "read-only"
 )
@@ -298,7 +298,7 @@ AskUserQuestion([
 사용자 승인 후 저장:
 
 ```
-.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/spec.md
+~/.claude/contexts/work/kidsnote/docs/ai-dev/{PK-xxxx-개발내용}/spec.md
 ```
 
 ---
@@ -470,12 +470,12 @@ struct {Entity}Entity: Codable {
 ### 예제 1: 스펙 확정 + 크로스 체크
 
 ```
-User: /ai-dev.spec PROJ-32398
+User: /ai-dev.spec PK-32398
 
 Claude: [ai-dev.spec 활성화]
 
 analyze.md 읽는 중...
-경로: .claude/contexts/work/my-project/docs/ai-dev/PROJ-32398-원생관리-검색기능/analyze.md
+경로: ~/.claude/contexts/work/kidsnote/docs/ai-dev/PK-32398-원생관리-검색기능/analyze.md
 
 모델 최적화 질문 생성 중...
 
@@ -520,9 +520,9 @@ User: 2 선택
 Claude: 스펙 확정 완료.
 
 spec.md 저장됨.
-경로: .claude/contexts/work/my-project/docs/ai-dev/PROJ-32398-원생관리-검색기능/spec.md
+경로: ~/.claude/contexts/work/kidsnote/docs/ai-dev/PK-32398-원생관리-검색기능/spec.md
 
-다음 단계: /ai-dev.plan PROJ-32398
+다음 단계: /ai-dev.plan PK-32398
 ```
 
 ---
@@ -535,7 +535,7 @@ spec.md 저장됨.
 스펙이 확정되었습니다.
 
 다음 단계로 구현 계획을 수립하시겠습니까?
-→ /ai-dev.plan PROJ-32398
+→ /ai-dev.plan PK-32398
 ```
 
 ---

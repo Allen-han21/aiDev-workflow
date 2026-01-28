@@ -22,9 +22,9 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 
 ## 사용 시점
 
-- `/ai-dev PROJ-XXXXX` - 전체 워크플로우 시작
-- `/ai-dev PROJ-XXXXX --auto` - 전체 자동화 (Mega-skill)
-- `/ai-dev PROJ-XXXXX --figma https://...` - Figma 포함
+- `/ai-dev PK-XXXXX` - 전체 워크플로우 시작
+- `/ai-dev PK-XXXXX --auto` - 전체 자동화 (Mega-skill)
+- `/ai-dev PK-XXXXX --figma https://...` - Figma 포함
 - `/ai-dev help` - 사용 방법 표시
 
 ---
@@ -40,22 +40,22 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 
 ```bash
 # 전체 워크플로우 (단계별 확인)
-/ai-dev PROJ-12345
+/ai-dev PK-12345
 
 # 전체 자동화 (Mega-skill)
-/ai-dev PROJ-12345 --auto
+/ai-dev PK-12345 --auto
 
 # Figma 디자인 포함
-/ai-dev PROJ-12345 --figma https://figma.com/design/xxx
+/ai-dev PK-12345 --figma https://figma.com/design/xxx
 
 # 빠른 개발 (검증 스킵)
-/ai-dev PROJ-12345 --auto --skip-checks
+/ai-dev PK-12345 --auto --skip-checks
 
 # 특정 Phase부터 시작
-/ai-dev PROJ-12345 --from impl
+/ai-dev PK-12345 --from impl
 
 # 복잡한 문제 (최고 품질)
-/ai-dev PROJ-12345 --no-codex --ultrathink
+/ai-dev PK-12345 --no-codex --ultrathink
 ```
 
 ---
@@ -68,9 +68,9 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 │      ↓                                                      │
 │  Task 2: spec        → Claude + Codex 크로스 체크           │
 │      ↓                                                      │
-│  Task 3: plan-check  → 5개 validators + devil's advocate ★  │
+│  Task 3: plan        → Codex MCP 계획 생성                  │
 │      ↓                                                      │
-│  Task 4: plan        → Codex MCP 계획 생성                  │
+│  Task 4: plan-check  → 5개 validators + devil's advocate ★  │
 │      ↓                                                      │
 │  Task 5: impl        → Task별 구현 + 로컬 커밋              │
 │      ↓                                                      │
@@ -89,15 +89,15 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 ### 개별 스킬 실행
 
 ```bash
-/ai-dev.analyze PROJ-12345      # 분석
-/ai-dev.spec PROJ-12345         # 스펙 정의
-/ai-dev.plan-check PROJ-12345   # 계획 검증 (5개 validators)
-/ai-dev.plan PROJ-12345         # 구현 계획
-/ai-dev.impl PROJ-12345         # 코드 구현
-/ai-dev.code-check PROJ-12345   # 품질 검사 (DRY/SOLID)
-/ai-dev.work-check PROJ-12345   # 버그 검사 (6개 checkers)
-/ai-dev.review PROJ-12345       # 리뷰 + 최종 판정
-/ai-dev.pr PROJ-12345           # PR 생성
+/ai-dev.analyze PK-12345      # 분석
+/ai-dev.spec PK-12345         # 스펙 정의
+/ai-dev.plan PK-12345         # 구현 계획
+/ai-dev.plan-check PK-12345   # 계획 검증 (5개 validators)
+/ai-dev.impl PK-12345         # 코드 구현
+/ai-dev.code-check PK-12345   # 품질 검사 (DRY/SOLID)
+/ai-dev.work-check PK-12345   # 버그 검사 (6개 checkers)
+/ai-dev.review PK-12345       # 리뷰 + 최종 판정
+/ai-dev.pr PK-12345           # PR 생성
 ```
 
 ---
@@ -154,7 +154,7 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 ### 출력 파일
 
 ```
-~/~/.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx}/
+~/~/.claude/contexts/work/kidsnote/docs/ai-dev/{PK-xxxx}/
 ├── analyze.md              # Phase 0
 ├── spec.md                 # Phase 1
 ├── plan-check-report.md    # Phase 2.5 ★
@@ -185,12 +185,12 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 │  │  → Claude + Codex 크로스 체크 → spec.md                       │      │
 │  │      │                                                        │      │
 │  │      ▼ [blockedBy: 2]                                        │      │
-│  │  Task 3: plan-check ★ 신규 [plan mode]                       │      │
-│  │  → 5개 validators + devil's advocate → plan-check-report.md  │      │
+│  │  Task 3: plan [plan mode]                                    │      │
+│  │  → Codex MCP 계획 생성 + Claude 검증 → plan.md               │      │
 │  │      │                                                        │      │
 │  │      ▼ [blockedBy: 3]                                        │      │
-│  │  Task 4: plan [plan mode]                                    │      │
-│  │  → Codex MCP 계획 생성 + Claude 검증 → plan.md               │      │
+│  │  Task 4: plan-check ★ [plan mode]                            │      │
+│  │  → 5개 validators + devil's advocate → plan-check-report.md  │      │
 │  │      │                                                        │      │
 │  │      ▼ [blockedBy: 4] [plan mode 해제]                       │      │
 │  │  Task 5: impl                                                 │      │
@@ -224,7 +224,7 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 
 ## 신규 검증 스킬 (v5.0)
 
-### ai-dev.plan-check (Phase 2.5)
+### ai-dev.plan-check (plan 작성 후 검증)
 
 **5개 병렬 validators + devil's advocate로 계획 검증**
 
@@ -262,7 +262,7 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 ## 문서 저장 경로
 
 ```
-~/~/.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/
+~/~/.claude/contexts/work/kidsnote/docs/ai-dev/{PK-xxxx-개발내용}/
 ├── analyze.md              # Phase 0 출력
 ├── spec.md                 # Phase 1 출력
 ├── plan-check-report.md    # Phase 2.5 출력 ★ 신규
@@ -289,22 +289,22 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 
 ```bash
 # 전체 워크플로우 (기본 - 단계별 확인)
-/ai-dev PROJ-12345
+/ai-dev PK-12345
 
 # Mega-skill 자동화 (확인 없이 전체 실행)
-/ai-dev PROJ-12345 --auto
+/ai-dev PK-12345 --auto
 
 # 빠른 개발 (검증 스킵)
-/ai-dev PROJ-12345 --auto --skip-checks
+/ai-dev PK-12345 --auto --skip-checks
 
 # Figma 포함
-/ai-dev PROJ-12345 --figma https://figma.com/design/xxx
+/ai-dev PK-12345 --figma https://figma.com/design/xxx
 
 # 구현부터 시작 (이미 계획이 있을 때)
-/ai-dev PROJ-12345 --from impl
+/ai-dev PK-12345 --from impl
 
 # 복잡한 문제 (최고 품질)
-/ai-dev PROJ-12345 --no-codex --ultrathink
+/ai-dev PK-12345 --no-codex --ultrathink
 ```
 
 ---
@@ -370,33 +370,33 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 
 **출력**: `spec.md`
 
-### Phase 2.5: ai-dev.plan-check ★ 신규
+### Phase 2: ai-dev.plan
 
 **모드**: plan mode
 
-**입력**: spec.md, plan.md (초안)
+**입력**: spec.md
+
+**프로세스**:
+1. Codex MCP로 계획 생성
+2. Claude 검증 (AGENTS.md 준수)
+3. 사용자 검토
+
+**출력**: `plan.md`
+
+### Phase 2.5: ai-dev.plan-check ★ (plan 검증)
+
+**모드**: plan mode
+
+**입력**: spec.md, plan.md
 
 **프로세스**:
 1. 5개 validators 병렬 실행
 2. Findings 집계 (P0-P3)
 3. Devil's advocate 도전
 4. 리포트 생성 및 판정
+5. P0 발견 시 plan.md 수정 후 재검증
 
 **출력**: `plan-check-report.md`
-
-### Phase 2: ai-dev.plan
-
-**모드**: plan mode
-
-**입력**: spec.md, plan-check-report.md
-
-**프로세스**:
-1. Codex MCP로 계획 생성
-2. Claude 검증 (AGENTS.md 준수)
-3. plan-check 결과 반영
-4. 사용자 구현 승인
-
-**출력**: `plan.md`
 
 ### Phase 3: ai-dev.impl
 
@@ -411,7 +411,7 @@ for each Task in plan.md:
     2. 의존성 Task 완료 확인
     3. 코드 구현
     4. 빌드 검증
-    5. 테스트 (Unit Test 또는 [DEBUG] 로그)
+    5. 테스트 (Unit Test 또는 [allen-test] 로그)
     6. 로컬 커밋
     7. plan.md 업데이트
 ```
@@ -468,15 +468,15 @@ for each Task in plan.md:
 ## 예제: Mega-skill 자동화
 
 ```
-User: /ai-dev PROJ-32398 --auto
+User: /ai-dev PK-32398 --auto
 
 Claude: [ai-dev 활성화 - Mega-skill 모드]
 
 Task Chain 생성됨 (9개 Task):
   1. analyze [pending]
   2. spec [blocked by 1]
-  3. plan-check [blocked by 2]
-  4. plan [blocked by 3]
+  3. plan [blocked by 2]
+  4. plan-check [blocked by 3]
   5. impl [blocked by 4]
   6. code-check [blocked by 5]
   7. work-check [blocked by 6]
@@ -484,7 +484,7 @@ Task Chain 생성됨 (9개 Task):
   9. pr [blocked by 8]
 
 ===== Task 1: analyze 시작 =====
-JIRA 조회 중... PROJ-32398: 검색 기능
+JIRA 조회 중... PK-32398: 원생 검색 기능
 [분석 진행]
 ✅ Task 1 완료 - analyze.md 저장됨
 
@@ -492,7 +492,11 @@ JIRA 조회 중... PROJ-32398: 검색 기능
 Claude + Codex 병렬 분석 중...
 ✅ Task 2 완료 - spec.md 저장됨
 
-===== Task 3: plan-check 시작 =====
+===== Task 3: plan 시작 =====
+Codex MCP로 계획 생성 중...
+✅ Task 3 완료 - plan.md 저장됨
+
+===== Task 4: plan-check 시작 =====
 5개 validators 병렬 실행 중...
   - completeness-checker ✅
   - pattern-compliance ✅
@@ -500,17 +504,13 @@ Claude + Codex 병렬 분석 중...
   - risk-assessor ✅
   - scope-discipline ✅
 Devil's advocate 실행 중...
-✅ Task 3 완료 - plan-check-report.md 저장됨
-
-===== Task 4: plan 시작 =====
-Codex MCP로 계획 생성 중...
-✅ Task 4 완료 - plan.md 저장됨
+✅ Task 4 완료 - plan-check-report.md 저장됨
 
 ===== Task 5: impl 시작 =====
 [Task별 구현 진행]
 ...
 
-⚠️ 컨텍스트 80% 도달 - Sentinel 자동 저장
+⚠️ 컨텍스트 70% 도달 - Sentinel 자동 저장
 Session ID: sentinel-2026-01-28-153000
 
 복원 명령어:
@@ -522,15 +522,15 @@ Session ID: sentinel-2026-01-28-153000
 ## 개별 Phase 실행
 
 ```bash
-/ai-dev.analyze PROJ-12345     # Phase 0
-/ai-dev.spec PROJ-12345        # Phase 1
-/ai-dev.plan-check PROJ-12345  # Phase 2.5 ★ 신규
-/ai-dev.plan PROJ-12345        # Phase 2
-/ai-dev.impl PROJ-12345        # Phase 3
-/ai-dev.code-check PROJ-12345  # Phase 3.5 ★ 신규
-/ai-dev.work-check PROJ-12345  # Phase 3.8 ★ 신규
-/ai-dev.review PROJ-12345      # Phase 4
-/ai-dev.pr PROJ-12345          # Phase 5
+/ai-dev.analyze PK-12345     # Phase 0
+/ai-dev.spec PK-12345        # Phase 1
+/ai-dev.plan PK-12345        # Phase 2
+/ai-dev.plan-check PK-12345  # Phase 2.5 ★ (plan 검증)
+/ai-dev.impl PK-12345        # Phase 3
+/ai-dev.code-check PK-12345  # Phase 3.5 ★ 신규
+/ai-dev.work-check PK-12345  # Phase 3.8 ★ 신규
+/ai-dev.review PK-12345      # Phase 4
+/ai-dev.pr PK-12345          # Phase 5
 ```
 
 ---
@@ -556,6 +556,150 @@ Session ID: sentinel-2026-01-28-153000
 
 ---
 
+## 실행 방법 (Mega-skill 구현)
+
+### --auto 모드: TaskCreate로 Task Chain 생성
+
+`/ai-dev PK-XXXXX --auto` 실행 시 다음과 같이 Task Chain을 생성합니다:
+
+```
+## Step 1: Task Chain 생성 (단일 메시지에서 9개 Task 생성)
+
+TaskCreate({
+  subject: "1. analyze - JIRA/Figma/코드 분석",
+  description: "JIRA 티켓 조회, Figma 디자인 추출, 코드베이스 탐색",
+  activeForm: "코드베이스 분석 중"
+})
+→ task_id: "1"
+
+TaskCreate({
+  subject: "2. spec - 스펙 확정",
+  description: "Claude + Codex 크로스 체크로 스펙 확정",
+  activeForm: "스펙 정의 중"
+})
+→ task_id: "2"
+TaskUpdate({ taskId: "2", addBlockedBy: ["1"] })
+
+TaskCreate({
+  subject: "3. plan - 구현 계획 수립",
+  description: "Codex MCP로 계획 생성 + Claude 검증",
+  activeForm: "구현 계획 수립 중"
+})
+→ task_id: "3"
+TaskUpdate({ taskId: "3", addBlockedBy: ["2"] })
+
+TaskCreate({
+  subject: "4. plan-check - 계획 검증",
+  description: "5개 validators + devil's advocate로 계획 검증",
+  activeForm: "계획 검증 중"
+})
+→ task_id: "4"
+TaskUpdate({ taskId: "4", addBlockedBy: ["3"] })
+
+TaskCreate({
+  subject: "5. impl - 코드 구현",
+  description: "plan.md 기반 Task별 구현 + 로컬 커밋",
+  activeForm: "코드 구현 중"
+})
+→ task_id: "5"
+TaskUpdate({ taskId: "5", addBlockedBy: ["4"] })
+
+TaskCreate({
+  subject: "6. code-check - 품질 검사",
+  description: "DRY/SOLID/Complexity 분석",
+  activeForm: "품질 검사 중"
+})
+→ task_id: "6"
+TaskUpdate({ taskId: "6", addBlockedBy: ["5"] })
+
+TaskCreate({
+  subject: "7. work-check - 버그 검사",
+  description: "6개 병렬 bug checkers 실행",
+  activeForm: "버그 검사 중"
+})
+→ task_id: "7"
+TaskUpdate({ taskId: "7", addBlockedBy: ["6"] })
+
+TaskCreate({
+  subject: "8. review - 코드 리뷰",
+  description: "비즈니스 규칙 검증 + 최종 승인 판정",
+  activeForm: "코드 리뷰 중"
+})
+→ task_id: "8"
+TaskUpdate({ taskId: "8", addBlockedBy: ["7"] })
+
+TaskCreate({
+  subject: "9. pr - PR 생성",
+  description: "Push + GitHub PR 생성",
+  activeForm: "PR 생성 중"
+})
+→ task_id: "9"
+TaskUpdate({ taskId: "9", addBlockedBy: ["8"] })
+```
+
+### Step 2: Task 순차 실행
+
+```
+TaskList() → 실행 가능한 Task 확인 (blockedBy가 비어있거나 완료된 Task)
+
+for each unblocked task:
+    TaskUpdate({ taskId, status: "in_progress" })
+
+    # 해당 스킬 실행
+    switch task.subject:
+        case "analyze": /ai-dev.analyze 실행
+        case "spec": /ai-dev.spec 실행
+        case "plan": /ai-dev.plan 실행
+        case "plan-check": /ai-dev.plan-check 실행
+        case "impl": /ai-dev.impl 실행
+        case "code-check": /ai-dev.code-check 실행
+        case "work-check": /ai-dev.work-check 실행
+        case "review": /ai-dev.review 실행
+        case "pr": /ai-dev.pr 실행
+
+    TaskUpdate({ taskId, status: "completed" })
+
+    # Sentinel 체크포인트 저장
+    /ai-dev.sentinel save --ticket {TICKET_ID}
+```
+
+### Step 3: Sentinel 자동 저장 트리거
+
+각 Task 완료 시 자동으로 상태를 저장합니다:
+
+```
+if task.status == "completed":
+    sentinel_save({
+        ticket_id: TICKET_ID,
+        current_phase: task.subject,
+        completed_tasks: TaskList().filter(t => t.status == "completed"),
+        pending_tasks: TaskList().filter(t => t.status == "pending")
+    })
+```
+
+### Step 4: 컨텍스트 임계치 도달 시
+
+대화가 길어져 컨텍스트 70%에 도달하면:
+
+```
+1. 현재 상태 자동 저장 (/ai-dev.sentinel save)
+2. 사용자에게 안내:
+
+   ⚠️ 컨텍스트 임계치 도달
+
+   Session ID: sentinel-{timestamp}
+   현재 진행: Task {N} ({phase})
+
+   👉 새 터미널을 열고 다음 명령어를 실행하세요:
+   $ claude
+   > /ai-dev.sentinel restore {session-id}
+```
+
+**⚠️ 중요**: Claude Code는 자체적으로 새 세션을 spawn할 수 없습니다.
+개발자가 직접 새 터미널을 열고 복원 명령어를 실행해야 합니다.
+
+---
+
 **Created:** 2026-01-23
 **Updated:** 2026-01-28
-**Version:** 5.0 (Mega-skill + 다단계 검증 + Sentinel)
+**Version:** 5.1 (Mega-skill 실행 방법 + Task Chain 구현 추가)

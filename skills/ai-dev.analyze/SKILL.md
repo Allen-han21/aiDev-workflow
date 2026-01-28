@@ -18,7 +18,7 @@ JIRA 티켓 정보(본문+댓글)와 Figma 디자인(자동 감지)을 기반으
 ## 사용법
 
 ```bash
-/ai-dev.analyze PROJ-XXXXX
+/ai-dev.analyze PK-XXXXX
 ```
 
 ---
@@ -49,21 +49,72 @@ figma.com/design/{file_key}/{file_name}?node-id={node_id}
 figma.com/file/{file_key}/{file_name}?node-id={node_id}
 ```
 
-**Figma URL 발견 시 figma-ocaml MCP 사용:**
+**Figma URL 발견 시 figma-ocaml MCP 사용 (강화된 워크플로우):**
 
 ```
 # 1. URL 파싱
 mcp__figma-ocaml__figma_parse_url(url: "{figma_url}")
 
-# 2. 노드 번들 추출 (권장)
-mcp__figma-ocaml__figma_get_node_bundle(
+# 2. 화면 전체 목록 확인
+mcp__figma-ocaml__figma_list_screens(
+  file_key: "{file_key}",
+  token: "{FIGMA_TOKEN}"
+)
+
+# 3. 구조 파악 (Outside-In 패턴)
+mcp__figma-ocaml__figma_get_node_summary(
+  file_key: "{file_key}",
+  node_id: "{node_id}",
+  token: "{FIGMA_TOKEN}"
+)
+
+# 4. 계층 시각화
+mcp__figma-ocaml__figma_tree(
+  file_key: "{file_key}",
+  node_id: "{node_id}",
+  token: "{FIGMA_TOKEN}"
+)
+
+# 5. Figma Variables 가져오기 (색상/간격/타이포 등)
+mcp__figma-ocaml__figma_get_variables(
+  file_key: "{file_key}",
+  token: "{FIGMA_TOKEN}"
+)
+
+# 6. 디자인 토큰 추출
+mcp__figma-ocaml__figma_export_tokens(
+  file_key: "{file_key}",
+  node_id: "{node_id}",
+  token: "{FIGMA_TOKEN}"
+)
+
+# 7. 상세 노드 정보 (필요 시)
+mcp__figma-ocaml__figma_get_node(
   file_key: "{file_key}",
   node_id: "{node_id}",
   token: "{FIGMA_TOKEN}",
-  include_meta: true,
-  include_variables: true,
-  include_image_fills: true
+  depth: 3
 )
+```
+
+**Figma 분석 흐름 (Outside-In 패턴):**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  figma_parse_url        → URL에서 file_key, node_id 추출    │
+│      ↓                                                      │
+│  figma_list_screens     → 전체 화면 목록 파악               │
+│      ↓                                                      │
+│  figma_get_node_summary → 구조 요약 (Outside-In 시작)       │
+│      ↓                                                      │
+│  figma_tree             → 계층 구조 시각화                  │
+│      ↓                                                      │
+│  figma_get_variables    → Figma Variables (색상/간격)       │
+│      ↓                                                      │
+│  figma_export_tokens    → 디자인 토큰 추출                  │
+│      ↓                                                      │
+│  figma_get_node         → 상세 구현 시 참조                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **추출 항목:**
@@ -71,6 +122,7 @@ mcp__figma-ocaml__figma_get_node_bundle(
 - 케이스별 화면 (정상/에러/빈 상태/로딩)
 - as-is / to-be 비교 (있는 경우)
 - 디자인 토큰 (색상, 폰트, 간격)
+- Figma Variables (디자인 시스템 변수)
 - 컴포넌트 계층 구조
 
 ### Step 3: iOS 코드베이스 분석
@@ -174,7 +226,7 @@ mcp__apple-docs__search_apple_docs(query: "{API명}")
 
 동일 기능이 Android에 이미 구현되어 있다면 참조하여 비교/보완:
 
-**Android 프로젝트 경로**: `~/Dev/Repo/my-android-app`
+**Android 프로젝트 경로**: `~/Dev/Repo/kidsnote_android`
 
 #### 3.5.1 Android PR 검색
 
@@ -186,20 +238,20 @@ mcp__apple-docs__search_apple_docs(query: "{API명}")
 
 ```bash
 # 1. 내용 기반 검색 (권장)
-gh pr list --repo my-project/my-android-app --search "원생 검색" --state all
-gh pr list --repo my-project/my-android-app --search "student search" --state all
+gh pr list --repo kidsnote/kidsnote_android --search "원생 검색" --state all
+gh pr list --repo kidsnote/kidsnote_android --search "student search" --state all
 
 # 2. 날짜 범위로 최근 PR 확인 (기능명 모호할 때)
-gh pr list --repo my-project/my-android-app --state merged --limit 50
+gh pr list --repo kidsnote/kidsnote_android --state merged --limit 50
 
 # 3. PR 상세 조회
-gh pr view {PR_NUMBER} --repo my-project/my-android-app
+gh pr view {PR_NUMBER} --repo kidsnote/kidsnote_android
 
 # 4. PR 변경 파일 목록
-gh pr diff {PR_NUMBER} --repo my-project/my-android-app --name-only
+gh pr diff {PR_NUMBER} --repo kidsnote/kidsnote_android --name-only
 
 # 5. PR diff 내용 확인
-gh pr diff {PR_NUMBER} --repo my-project/my-android-app
+gh pr diff {PR_NUMBER} --repo kidsnote/kidsnote_android
 ```
 
 **검색 전략:**
@@ -222,7 +274,7 @@ PR이 없거나 추가 탐색이 필요한 경우:
 
 ```
 Task(subagent_type="Explore", prompt="
-~/Dev/Repo/my-android-app 에서 {티켓 제목}과 관련된 코드를 탐색합니다.
+~/Dev/Repo/kidsnote_android 에서 {티켓 제목}과 관련된 코드를 탐색합니다.
 
 찾아야 할 것:
 1. 관련 Activity/Fragment 파일
@@ -286,16 +338,16 @@ AskUserQuestion([
 
 ```bash
 # 저장 경로
-.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/analyze.md
+~/.claude/contexts/work/kidsnote/docs/ai-dev/{PK-xxxx-개발내용}/analyze.md
 ```
 
 **폴더명 생성 규칙:**
-- 티켓 번호: JIRA 티켓 키 (예: PROJ-32398)
+- 티켓 번호: JIRA 티켓 키 (예: PK-32398)
 - 개발내용: JIRA 티켓 제목에서 추출
   - 공백 → 하이픈으로 변환
   - 특수문자 제거
   - 최대 30자
-- 예: `PROJ-32398-원생관리-검색기능`
+- 예: `PK-32398-원생관리-검색기능`
 
 ---
 
@@ -397,10 +449,10 @@ AskUserQuestion([
 |------|------|
 | 검색 키워드 | {사용한 검색어} |
 | PR 번호 | #{PR_NUMBER} (없으면 "없음") |
-| Android 티켓 | {PROJ-XXXXX} (iOS 티켓과 다름) |
+| Android 티켓 | {PA-XXXXX} (iOS 티켓과 다름) |
 | PR 제목 | {PR 제목} |
 | PR 상태 | merged / open / closed |
-| PR URL | https://github.com/my-project/my-android-app/pull/{NUMBER} |
+| PR URL | https://github.com/kidsnote/kidsnote_android/pull/{NUMBER} |
 
 ### PR 주요 내용 (PR이 있는 경우)
 - **구현 방향**: {PR 설명에서 추출}
@@ -480,12 +532,12 @@ AskUserQuestion([
 ### 예제 1: 기본 분석
 
 ```
-User: /ai-dev.analyze PROJ-32398
+User: /ai-dev.analyze PK-32398
 
 Claude: [ai-dev.analyze 활성화]
 
 JIRA 티켓 조회 중...
-PROJ-32398: 원생관리 검색 기능
+PK-32398: 원생관리 검색 기능
 
 본문 + 댓글 수집 완료.
 - 댓글 3개: 기획자/디자이너 논의 내용 포함
@@ -507,13 +559,13 @@ iOS 코드베이스 분석 중...
 
 Android PR 검색 중...
 키워드: "원생 검색", "student search"
-[gh pr list --repo my-project/my-android-app --search "원생 검색" --state all]
+[gh pr list --repo kidsnote/kidsnote_android --search "원생 검색" --state all]
 
 Android PR 발견: #1234
-[gh pr view 1234 --repo my-project/my-android-app]
+[gh pr view 1234 --repo kidsnote/kidsnote_android]
 
 PR 정보:
-- 제목: [PROJ-5678] feat(student): 원생 검색 기능 추가  ← Android 티켓 번호는 다름
+- 제목: [PA-5678] feat(student): 원생 검색 기능 추가  ← Android 티켓 번호는 다름
 - 상태: merged
 - 변경 파일: 8개
 
@@ -523,7 +575,7 @@ PR 주요 내용:
 - 리뷰 코멘트: "특수문자 입력 시 예외 처리 필요" → 반영됨
 
 Android 코드베이스 탐색 중...
-[Explore 에이전트 - ~/Dev/Repo/my-android-app]
+[Explore 에이전트 - ~/Dev/Repo/kidsnote_android]
 
 참조 파일:
 - StudentListFragment.kt
@@ -547,7 +599,7 @@ Android 코드베이스 탐색 중...
 2. 빈 검색 결과 UI는?
 
 분석 완료. analyze.md 저장됨.
-경로: .claude/contexts/work/my-project/docs/ai-dev/PROJ-32398-원생관리-검색기능/analyze.md
+경로: ~/.claude/contexts/work/kidsnote/docs/ai-dev/PK-32398-원생관리-검색기능/analyze.md
 ```
 
 ---
@@ -560,7 +612,7 @@ Android 코드베이스 탐색 중...
 분석이 완료되었습니다.
 
 다음 단계로 스펙을 확정하시겠습니까?
-→ /ai-dev.spec PROJ-32398
+→ /ai-dev.spec PK-32398
 ```
 
 ---

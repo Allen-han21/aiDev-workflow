@@ -20,7 +20,7 @@ description: 확정된 스펙 기반 구현 계획 수립. Codex MCP로 계획 �
 ## 사용법
 
 ```bash
-/ai-dev.plan PROJ-XXXXX
+/ai-dev.plan PK-XXXXX
 ```
 
 ---
@@ -36,19 +36,19 @@ description: 확정된 스펙 기반 구현 계획 수립. Codex MCP로 계획 �
 
 ```bash
 # 기본 (Codex 사용)
-/ai-dev.plan PROJ-12345
+/ai-dev.plan PK-12345
 
 # Codex 쿼터 절약
-/ai-dev.plan PROJ-12345 --no-codex
+/ai-dev.plan PK-12345 --no-codex
 
 # 복잡한 문제 (ultrathink)
-/ai-dev.plan PROJ-12345 --ultrathink
+/ai-dev.plan PK-12345 --ultrathink
 
 # 복잡한 문제 + Codex 쿼터 없음 (최고 품질)
-/ai-dev.plan PROJ-12345 --no-codex --ultrathink
+/ai-dev.plan PK-12345 --no-codex --ultrathink
 
 # 옵션 먼저도 가능
-/ai-dev.plan --no-codex --ultrathink PROJ-12345
+/ai-dev.plan --no-codex --ultrathink PK-12345
 ```
 
 > **참고**: 옵션 위치는 자유롭습니다.
@@ -60,13 +60,13 @@ description: 확정된 스펙 기반 구현 계획 수립. Codex MCP로 계획 �
 ### Step 1: spec.md 읽기
 
 ```
-.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/spec.md
+~/.claude/contexts/work/kidsnote/docs/ai-dev/{PK-xxxx-개발내용}/spec.md
 ```
 
 spec.md가 없으면 안내:
 ```
 spec.md가 없습니다.
-먼저 스펙을 확정하세요: /ai-dev.spec PROJ-XXXXX
+먼저 스펙을 확정하세요: /ai-dev.spec PK-XXXXX
 ```
 
 ### Step 2: 구현 계획 생성
@@ -116,7 +116,7 @@ Phase 구조로 분류:
 - Phase 2: 비즈니스 로직 (UseCase, Reactor/ViewModel)
 - Phase 3: UI 레이어 (View, Cell)
 - Phase 4: 통합 및 테스트",
-  cwd: "~/Dev/Repo/my-ios-app",
+  cwd: "/Users/allen/Dev/Repo/kidsnote_ios",
   approval-policy: "on-failure",
   sandbox: "read-only"
 )
@@ -192,7 +192,7 @@ Read: 발견된 유사 패턴 파일 2-3개
 #### 2-B.2 AGENTS.md 컨벤션 확인
 
 ```bash
-Read: "~/Dev/Repo/my-ios-app/AGENTS.md"
+Read: "/Users/allen/Dev/Repo/kidsnote_ios/AGENTS.md"
 ```
 
 코딩 컨벤션 추출:
@@ -269,7 +269,7 @@ Codex 검증 대신 Claude 자체 검증:
 ### Step 4: plan.md 생성
 
 ```
-.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/plan.md
+~/.claude/contexts/work/kidsnote/docs/ai-dev/{PK-xxxx-개발내용}/plan.md
 ```
 
 ### Step 5: 사용자 구현 승인
@@ -420,7 +420,7 @@ Task 4.2 (테스트)
 |------|------------|------|
 | 1.1 | Unit Test | Entity Codable 테스트 |
 | 2.2 | Unit Test | Reactor Action/State 테스트 |
-| 3.1 | [DEBUG] 로그 | UI 동작 확인 |
+| 3.1 | [allen-test] 로그 | UI 동작 확인 |
 
 ---
 
@@ -428,9 +428,9 @@ Task 4.2 (테스트)
 
 | Task | 커밋 메시지 |
 |------|------------|
-| 1.1 | `[PROJ-XXXXX] feat(model): {Entity} Entity 추가` |
-| 1.2 | `[PROJ-XXXXX] feat(networking): {Feature} Repository 구현` |
-| 2.1 | `[PROJ-XXXXX] feat(logic): {Feature} Service 구현` |
+| 1.1 | `[PK-XXXXX] feat(model): {Entity} Entity 추가` |
+| 1.2 | `[PK-XXXXX] feat(networking): {Feature} Repository 구현` |
+| 2.1 | `[PK-XXXXX] feat(logic): {Feature} Service 구현` |
 | ... | ... |
 
 ---
@@ -471,12 +471,12 @@ Task 4.2 (테스트)
 ### 예제 1: Codex 계획 + Claude 검증
 
 ```
-User: /ai-dev.plan PROJ-32398
+User: /ai-dev.plan PK-32398
 
 Claude: [ai-dev.plan 활성화]
 
 spec.md 읽는 중...
-경로: .claude/contexts/work/my-project/docs/ai-dev/PROJ-32398-원생관리-검색기능/spec.md
+경로: ~/.claude/contexts/work/kidsnote/docs/ai-dev/PK-32398-원생관리-검색기능/spec.md
 
 Codex MCP로 계획 생성 중...
 [mcp__codex__codex 실행]
@@ -496,11 +496,11 @@ Claude 검증 중...
 [보정 완료]
 
 plan.md 저장됨.
-경로: .claude/contexts/work/my-project/docs/ai-dev/PROJ-32398-원생관리-검색기능/plan.md
+경로: ~/.claude/contexts/work/kidsnote/docs/ai-dev/PK-32398-원생관리-검색기능/plan.md
 
 ---
 
-# PROJ-32398 구현 계획
+# PK-32398 구현 계획
 
 ## 요약
 원생 목록에 실시간 검색 기능을 추가합니다. SearchBar UI, 디바운스 필터링 로직, 빈 결과 처리를 구현합니다.
@@ -532,7 +532,7 @@ User: 1
 
 Claude: 구현 승인 완료.
 
-다음 단계: /ai-dev.impl PROJ-32398
+다음 단계: /ai-dev.impl PK-32398
 ```
 
 ---
@@ -545,7 +545,7 @@ Claude: 구현 승인 완료.
 구현 계획이 확정되었습니다.
 
 plan mode를 해제하고 구현을 시작합니다.
-→ /ai-dev.impl PROJ-32398
+→ /ai-dev.impl PK-32398
 ```
 
 ---

@@ -4,16 +4,17 @@
 
 Transform your development process with an AI-powered workflow that handles everything from analysis to PR creation.
 
-## What's New in v5.0
+## What's New in v5.1
 
-- **Mega-skill Pattern**: `--auto` option for fully automated pipeline
+- **Mega-skill Pattern**: `--auto` option with TaskCreate/TaskUpdate for automated pipeline
 - **Multi-stage Validation**: plan-check, code-check, work-check (14 validators)
-- **Sentinel Pattern**: Auto-save/restore for long workflow sessions
+- **Sentinel Pattern**: Auto-save/restore for long workflow sessions (70% context threshold)
+- **Workflow Order Fix**: plan → plan-check (matches original zac's pattern)
 - **9-Phase Workflow**: Extended from 6 phases with validation stages
 
 ## Features
 
-- **9-Phase Workflow**: Analyze → Spec → Plan-Check → Plan → Implement → Code-Check → Work-Check → Review → PR
+- **9-Phase Workflow**: Analyze → Spec → Plan → Plan-Check → Implement → Code-Check → Work-Check → Review → PR
 - **AI Cross-Check**: Claude + Codex MCP parallel verification
 - **14 Validators**: 5 plan validators + 3 code quality + 6 bug checkers
 - **Figma Integration**: Auto-extract design context via figma-ocaml MCP
@@ -52,8 +53,8 @@ cd aiDev-workflow
 # Individual phases
 /ai-dev.analyze PROJ-12345     # Phase 0: Analysis
 /ai-dev.spec PROJ-12345        # Phase 1: Specification
-/ai-dev.plan-check PROJ-12345  # Phase 2.5: Plan Validation
 /ai-dev.plan PROJ-12345        # Phase 2: Planning
+/ai-dev.plan-check PROJ-12345  # Phase 2.5: Plan Validation
 /ai-dev.impl PROJ-12345        # Phase 3: Implementation
 /ai-dev.code-check PROJ-12345  # Phase 3.5: Code Quality
 /ai-dev.work-check PROJ-12345  # Phase 3.8: Bug Detection
@@ -80,12 +81,12 @@ cd aiDev-workflow
 │  │  → Claude + Codex 크로스 체크 → spec.md                       │      │
 │  │      │                                                        │      │
 │  │      ▼ [blockedBy: 2]                                        │      │
-│  │  Task 3: plan-check ★ [plan mode]                            │      │
-│  │  → 5개 validators + devil's advocate → plan-check-report.md  │      │
+│  │  Task 3: plan [plan mode]                                    │      │
+│  │  → Codex MCP 계획 생성 + Claude 검증 → plan.md               │      │
 │  │      │                                                        │      │
 │  │      ▼ [blockedBy: 3]                                        │      │
-│  │  Task 4: plan [plan mode]                                    │      │
-│  │  → Codex MCP 계획 생성 + Claude 검증 → plan.md               │      │
+│  │  Task 4: plan-check ★ [plan mode]                            │      │
+│  │  → 5개 validators + devil's advocate → plan-check-report.md  │      │
 │  │      │                                                        │      │
 │  │      ▼ [blockedBy: 4] [plan mode 해제]                       │      │
 │  │  Task 5: impl                                                 │      │
@@ -121,8 +122,8 @@ cd aiDev-workflow
 |-------|-------|------|---------------|--------|
 | 0 | `ai-dev.analyze` | Plan | JIRA + Figma + Code exploration | `analyze.md` |
 | 1 | `ai-dev.spec` | Plan | Claude + Codex cross-check | `spec.md` |
-| 2.5 | `ai-dev.plan-check` ★ | Plan | 5 validators + devil's advocate | `plan-check-report.md` |
 | 2 | `ai-dev.plan` | Plan | Codex MCP + Claude validation | `plan.md` |
+| 2.5 | `ai-dev.plan-check` ★ | Plan | 5 validators + devil's advocate | `plan-check-report.md` |
 | 3 | `ai-dev.impl` | Dev | Task-by-task implementation | Source code |
 | 3.5 | `ai-dev.code-check` ★ | Dev | DRY/SOLID/Complexity analysis | `code-check-report.md` |
 | 3.8 | `ai-dev.work-check` ★ | Dev | 6 parallel bug checkers | `work-check-report.md` |
@@ -199,21 +200,27 @@ For long workflows that may exceed context limits:
 
 ```bash
 # Manual save
-/ai-dev.sentinel save
+/ai-dev.sentinel save --ticket PROJ-12345
 
 # List saved sessions
 /ai-dev.sentinel list
 
-# Restore session
+# Restore session (in a NEW terminal)
 /ai-dev.sentinel restore sentinel-2026-01-28-153000
 
 # Cleanup old sessions
 /ai-dev.sentinel cleanup --older-than 7d
 ```
 
+**⚠️ Important**: Claude Code cannot spawn new sessions automatically. When context threshold (70%) is reached:
+1. Auto-save triggers with restore command displayed
+2. **You must manually open a new terminal**
+3. Run the restore command to continue
+
 **Auto-save Triggers:**
 - Phase transitions (analyze→spec, spec→plan, etc.)
 - Task completion (after each commit)
+- Context threshold (70%)
 - Explicit request ("저장해줘", "save")
 - Long conversations (turns > 20)
 
@@ -250,6 +257,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Version**: 5.0
+**Version**: 5.1
 **Created**: 2026-01-23
-**Updated**: 2026-01-28 (Mega-skill + Multi-stage Validation + Sentinel)
+**Updated**: 2026-01-29 (Workflow order fix + Sentinel implementation + TaskCreate pattern)
