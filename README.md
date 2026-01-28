@@ -8,6 +8,7 @@ Transform your development process with an AI-powered workflow that handles ever
 
 - **6-Phase Workflow**: Analyze → Spec → Plan → Implement → Review → PR
 - **AI Cross-Check**: Claude + Codex MCP parallel verification
+- **Business Rules Validation**: State variable impact, requirement traceability, pattern consistency, conflict detection
 - **Figma Integration**: Auto-extract design context via figma-ocaml MCP
 - **Cross-Platform Reference**: iOS/Android codebase comparison
 - **Documentation Automation**: Auto-generate analyze.md, spec.md, plan.md
@@ -89,7 +90,7 @@ cd aiDev-workflow
 | 1 | `ai-dev.spec` | Plan | Claude + Codex 크로스 체크 (3자 검증) | `spec.md` |
 | 2 | `ai-dev.plan` | Plan | 의존성 그래프 기반 Task 분해 | `plan.md` |
 | 3 | `ai-dev.impl` | Dev | Task별 구현 + 빌드 검증 + 로컬 커밋 | 소스 코드 |
-| 4 | `ai-dev.review` | Dev | 린트 + CodeRabbit + Claude + Codex(--full) | 승인/변경요청 |
+| 4 | `ai-dev.review` | Dev | 린트 + CodeRabbit + Claude + 비즈니스 규칙 검증 + Codex(--full) | 승인/변경요청 |
 | 5 | `ai-dev.pr` | Dev | JIRA 자동 추출 + 표준 PR 템플릿 | PR URL |
 
 ### 의존성 체인
@@ -111,6 +112,9 @@ ai-dev.analyze → ai-dev.spec → ai-dev.plan → ai-dev.impl → ai-dev.review
 | `--no-codex` | Use Claude only (no Codex MCP) | spec, plan, review |
 | `--ultrathink` | Enable extended thinking | spec, plan |
 | `--full` | Parallel cross-check in review | review |
+| `--biz-rules` | Enable business rules validation (default) | review |
+| `--no-biz-rules` | Disable business rules validation | review |
+| `--deep` | Deep validation (all biz-rules sub-steps) | review |
 | `--task N` | Start from specific task | impl |
 | `--auto` | Auto-proceed all tasks | impl |
 | `--draft` | Create draft PR | pr |
@@ -122,6 +126,49 @@ ai-dev.analyze → ai-dev.spec → ai-dev.plan → ai-dev.impl → ai-dev.review
 - (Optional) [Codex MCP](https://github.com/anthropics/codex-mcp)
 - (Optional) [figma-ocaml MCP](https://github.com/anthropics/figma-ocaml)
 - (Optional) [apple-docs MCP](https://github.com/anthropics/apple-docs)
+
+## Business Rules Validation (v4.0)
+
+`ai-dev.review`에서 비즈니스 규칙 검증을 통해 코드 변경이 기존 비즈니스 로직에 미치는 영향을 분석합니다.
+
+### 검증 항목
+
+| 단계 | 검증 내용 | 자동화 |
+|------|----------|--------|
+| **상태 변수 영향도** | `is*`, `has*`, `should*` 변수의 할당점/검사점 분석 | Grep 패턴 매칭 |
+| **요구사항 역추적** | spec.md 요구사항이 모두 구현되었는지 확인 | spec.md 자동 파싱 |
+| **유사 패턴 비교** | 기존 유사 기능과의 패턴 일관성 확인 | 코드 패턴 비교 |
+| **기능 충돌 검증** | 새 기능이 기존 모드/기능과 충돌하는지 확인 | 시나리오 분석 |
+
+### 사용 예시
+
+```bash
+# 기본 (비즈니스 규칙 검증 포함)
+/ai-dev.review PK-32398
+
+# 전체 검증 + Codex 크로스체크
+/ai-dev.review PK-32398 --full --deep
+
+# 비즈니스 규칙 검증 제외 (단순 수정 시)
+/ai-dev.review PK-32398 --no-biz-rules
+```
+
+### 충돌 감지 예시
+
+```markdown
+### 기능 충돌 분석
+
+| 기존 기능/모드 | 충돌 가능성 | 영향 | 권장 조치 |
+|---------------|------------|------|----------|
+| 추억보기 모드 | 🔴 높음 | 작성 화면 진입 가능 | isTimeLineMode 체크 추가 |
+
+**충돌 시나리오**:
+1. 전제조건: isTimeLineMode = true (추억보기 중)
+2. 사용자 액션: kidsnote://report/write 스킴 호출
+3. 기대 결과: 목록으로 fallback (작성 차단)
+4. 실제 결과: 작성 화면 진입됨
+5. 충돌 여부: ❌ 규칙 위반
+```
 
 ## Documentation
 
@@ -136,6 +183,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Version**: 4.0
+**Version**: 4.1
 **Created**: 2026-01-23
-**Updated**: 2026-01-28
+**Updated**: 2026-01-28 (비즈니스 규칙 검증 추가)

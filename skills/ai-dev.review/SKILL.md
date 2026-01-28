@@ -7,18 +7,21 @@ description: 자동 검증 후 코드 리뷰를 수행하고 승인/변경요청
 
 자동 검증 후 상세한 코드 리뷰를 수행합니다. `--full` 옵션으로 Codex/다른 LLM과 병렬 크로스체크할 수 있습니다.
 
+**v4.0 신규**: 비즈니스 규칙 검증 추가 - 상태 변수 영향도, 요구사항 역추적, 유사 패턴 비교, 기능 충돌 분석
+
 ---
 
 ## 목적
 
 - 자동 검증 (린트)
 - 상세 코드 리뷰
+- **비즈니스 규칙 검증** (신규)
 - 승인/변경요청 판정
 
 ## 사용 시점
 
-- `/ai-dev.review PROJ-XXXXX` - 리뷰 시작
-- `/ai-dev.review PROJ-XXXXX --full` - 병렬 크로스체크 포함
+- `/ai-dev.review PK-XXXXX` - 리뷰 시작
+- `/ai-dev.review PK-XXXXX --full` - 병렬 크로스체크 포함
 - 보통 `/ai-dev.impl` 완료 후 실행
 
 ---
@@ -32,8 +35,8 @@ description: 자동 검증 후 코드 리뷰를 수행하고 승인/변경요청
 리뷰 시작 전 프로젝트 AGENTS.md를 읽어 팀 규칙을 적용합니다:
 
 ```bash
-# my-ios-app 프로젝트
-cat ~/Dev/Repo/my-ios-app/AGENTS.md
+# kidsnote_ios 프로젝트
+cat ~/Dev/Repo/kidsnote_ios/AGENTS.md
 ```
 
 **AGENTS.md 핵심 규칙 (요약):**
@@ -50,6 +53,18 @@ cat ~/Dev/Repo/my-ios-app/AGENTS.md
 - filterEmpty 사용
 - 삼항연산자 추천
 - 주석/문서화 추가
+
+#### spec.md 확인 (신규)
+
+비즈니스 규칙 검증을 위해 spec.md 존재 여부 확인:
+
+```bash
+# spec.md 위치 확인
+Glob: ".claude/contexts/work/kidsnote/docs/ai-dev/{TICKET_ID}*/spec.md"
+```
+
+- **spec.md 있음** → Step 2.3.2 요구사항 역추적 활성화
+- **spec.md 없음** → Step 2.3.2 스킵 (경고 표시)
 
 ### Step 1: 자동 검증
 
@@ -118,7 +133,169 @@ mcp__codex__codex(
 )
 ```
 
+### Step 2.3: 비즈니스 규칙 검증 (신규)
+
+> **배경**: PR #7360에서 CodeRabbit이 발견한 "추억보기 모드 충돌" 같은 비즈니스 규칙 위반을 감지하기 위해 추가된 단계
+
+`--no-biz-rules` 옵션 사용 시 이 단계를 스킵합니다.
+
+#### Step 2.3.1: 상태 변수 영향도 분석
+
+**목적**: Bool 플래그 변경이 기존 로직에 미치는 영향 파악
+
+**실행 조건**: 변경된 코드에 상태 변수(`is*`, `has*`, `should*`) 할당이 포함된 경우
+
+**자동화 방법**:
+
+```bash
+# 1. 변경 파일에서 상태 변수 추출
+git diff HEAD~1 | grep -E "^\+.*is[A-Z]|^\+.*has[A-Z]|^\+.*should[A-Z]"
+
+# 2. 해당 변수의 전체 사용 패턴 분석 (할당점)
+Grep: "{변수명}\s*=" --type swift --output_mode content
+
+# 3. 조건 검사점 분석
+Grep: "if.*{변수명}|guard.*{변수명}" --type swift --output_mode content
+```
+
+**분석 관점**:
+- 해당 변수가 `true`/`false`일 때 각각 어떤 동작을 하는가?
+- 새 코드가 기존 조건 분기를 우회하는가?
+- 새 코드에서 해당 변수를 적절히 설정/검사하는가?
+
+**출력 형식**:
+```markdown
+#### 상태 변수: {변수명}
+
+**용도**: {비즈니스 의미}
+
+**할당점 (N개)**:
+| 파일 | 라인 | 조건 | 설정값 |
+|------|-----|------|--------|
+
+**검사점 (M개)**:
+| 파일 | 라인 | 조건 | 동작 |
+|------|-----|------|------|
+
+**새 코드 검증**:
+- [ ] 적절한 할당
+- [ ] 적절한 검사
+- [ ] 기존 규칙 준수
+
+**위험 평가**: 🔴 높음 / 🟠 중간 / 🟢 낮음
+```
+
+#### Step 2.3.2: 요구사항 역추적 검증
+
+**목적**: spec.md 요구사항이 모두 구현되었는지 확인
+
+**실행 조건**: Step 0에서 spec.md가 발견된 경우
+
+**자동화 방법**:
+```bash
+# spec.md 읽기
+Read: .claude/contexts/work/kidsnote/docs/ai-dev/{TICKET_ID}*/spec.md
+```
+
+**검증 체크리스트**:
+```markdown
+### 요구사항 역추적
+
+| # | 요구사항 | spec.md 섹션 | 구현 파일 | 상태 |
+|---|---------|-------------|----------|------|
+| 1 | {요구사항} | {섹션} | {파일} | ✅/❌ |
+
+**누락된 요구사항**:
+- ❌ {요구사항}: {구현 누락 이유}
+```
+
+#### Step 2.3.3: 유사 패턴 비교 분석
+
+**목적**: 기존 유사 기능과의 패턴 일관성 확인
+
+**실행 조건**: 새로운 함수/메서드 추가 또는 기존 함수 변형 시
+
+**자동화 방법**:
+```bash
+# 1. 유사 함수명 패턴 검색 (예: schemeReportWrite → scheme*Report*)
+Grep: "{유사 패턴}" --type swift --output_mode files_with_matches
+
+# 2. 기존 구현 패턴 추출
+Read: {기존 유사 파일}
+```
+
+**검증 항목**:
+- 초기화 순서 일관성
+- 상태 검사 로직 일관성
+- 에러 핸들링 패턴 일관성
+
+**출력 형식**:
+```markdown
+### 유사 패턴 비교
+
+| 항목 | 기존 패턴 | 새 패턴 | 일관성 |
+|------|----------|---------|--------|
+| 상태 검사 | {패턴} | {패턴} | ✅/❌ |
+| 에러 핸들링 | {패턴} | {패턴} | ✅/❌ |
+
+**불일치 시 권장 수정**:
+```diff
+- 현재 코드
++ 패턴 일치 코드
+```
+```
+
+#### Step 2.3.4: 기능 충돌 검증
+
+**목적**: 새 기능이 기존 기능/모드와 충돌하는지 확인
+
+**실행 조건**: 상태 변수 변경 또는 새로운 진입점(scheme, 버튼 등) 추가 시
+
+**자동화 방법**:
+```bash
+# 1. 영향받는 모드/기능 식별
+Grep: "Mode|State|Flag" --path {변경된 파일 디렉토리}
+
+# 2. 모드별 조건 분기 확인
+Grep: "if.*{모드변수}|guard.*{모드변수}" --type swift
+```
+
+**검증 시나리오 템플릿**:
+```markdown
+### 기능 충돌 분석
+
+| 기존 기능/모드 | 충돌 가능성 | 영향 | 권장 조치 |
+|---------------|------------|------|----------|
+| {모드명} | 🔴/🟠/🟢 | {영향} | {조치} |
+
+**충돌 시나리오**:
+1. 전제조건: {모드} = {상태}
+2. 사용자 액션: {액션}
+3. 기대 결과: {기존 규칙}
+4. 실제 결과: {새 코드 동작}
+5. 충돌 여부: ✅/❌
+```
+
 ### Step 2.7: 리뷰 결과 종합
+
+#### CodeRabbit 결과 확인 (필수)
+
+종합 전에 **반드시** CodeRabbit 리뷰 결과가 있는지 확인:
+
+```
+CodeRabbit 리뷰 결과 확인:
+- ✅ 결과 있음 → 종합 진행
+- ❌ 결과 없음 → CodeRabbit 실행 후 종합
+```
+
+**결과 없으면 즉시 실행:**
+```bash
+coderabbit review --plain -t all
+```
+
+> **주의**: CodeRabbit 결과 없이 종합하지 마세요. 누락 시 크로스체크 품질이 저하됩니다.
+
+#### 종합 판단
 
 Claude가 CodeRabbit 결과와 자신의 리뷰를 비교하여 최종 판단:
 
@@ -254,6 +431,30 @@ mcp__apple-docs__search_apple_docs(query: "{사용된 API}")
 
 ---
 
+## 🔍 비즈니스 규칙 검증
+
+### 상태 변수 영향도
+| 변수명 | 할당점 | 기존 규칙 | 새 코드 | 검증 결과 |
+|--------|--------|----------|---------|-----------|
+| {변수} | {N}개 | {규칙} | {상태} | ✅/❌ |
+
+### 요구사항 역추적
+| 요구사항 | spec.md | 구현 상태 | 검증 결과 |
+|----------|---------|----------|-----------|
+| {항목} | ✅ | ✅/❌ | ✅/❌ |
+
+### 유사 패턴 비교
+| 항목 | 기존 패턴 | 새 패턴 | 일관성 |
+|------|----------|---------|--------|
+| {항목} | {패턴} | {패턴} | ✅/❌ |
+
+### 기능 충돌 분석
+| 기존 기능/모드 | 충돌 가능성 | 영향 | 권장 조치 |
+|---------------|------------|------|----------|
+| {기능} | 높음/중간/낮음 | {영향} | {조치} |
+
+---
+
 ## 코드 리뷰
 
 ### ✅ 좋은 점
@@ -356,7 +557,7 @@ mcp__apple-docs__search_apple_docs(query: "{사용된 API}")
 ```
 mcp__codex__codex(
   prompt: "{리뷰 요청}",
-  cwd: "~/Dev/Repo/my-ios-app",
+  cwd: "/Users/allen/Dev/Repo/kidsnote_ios",
   approval-policy: "on-failure",
   sandbox: "read-only"
 )
@@ -368,8 +569,27 @@ mcp__codex__codex(
 
 | 옵션 | 설명 | 예시 |
 |------|------|------|
-| `--quick` | 빠른 리뷰 (Critical만) | 긴급 수정 시 |
+| `--quick` | 빠른 리뷰 (Critical만, biz-rules 제외) | 긴급 수정 시 |
 | `--full` | Codex/다른 LLM과 병렬 크로스체크 | 중요 변경 시 |
+| `--biz-rules` | 비즈니스 규칙 검증 활성화 (기본값) | - |
+| `--no-biz-rules` | 비즈니스 규칙 검증 비활성화 | 단순 수정 시 |
+| `--deep` | 전체 검증 (biz-rules의 모든 하위 단계 실행) | 중요 기능 변경 |
+
+### 옵션 조합 예시
+
+```bash
+# 기본 (비즈니스 규칙 검증 포함)
+/ai-dev.review PK-32398
+
+# 전체 검증 + Codex 크로스체크
+/ai-dev.review PK-32398 --full --deep
+
+# 빠른 리뷰 (긴급 핫픽스)
+/ai-dev.review PK-32398 --quick
+
+# 비즈니스 규칙 검증만 제외
+/ai-dev.review PK-32398 --no-biz-rules
+```
 
 ---
 
@@ -378,7 +598,7 @@ mcp__codex__codex(
 ### 예제 1: 기본 리뷰
 
 ```
-User: /ai-dev.review PROJ-32398
+User: /ai-dev.review PK-32398
 
 Claude: [ai-dev.review 활성화]
 
@@ -390,7 +610,7 @@ Claude: [ai-dev.review 활성화]
 변경 파일: 5개
 
 ---
-# PROJ-32398 코드 리뷰 결과
+# PK-32398 코드 리뷰 결과
 
 ## 🔍 리뷰 종합
 
@@ -420,13 +640,13 @@ Claude: [ai-dev.review 활성화]
 ---
 
 승인되었습니다. PR을 생성하시겠습니까?
-→ /ai-dev.pr PROJ-32398
+→ /ai-dev.pr PK-32398
 ```
 
 ### 예제 2: 병렬 크로스체크 (--full)
 
 ```
-User: /ai-dev.review PROJ-32398 --full
+User: /ai-dev.review PK-32398 --full
 
 Claude: [ai-dev.review 활성화] (3자 크로스체크 모드)
 
@@ -478,7 +698,106 @@ Claude: [ai-dev.review 활성화] (3자 크로스체크 모드)
 ---
 
 승인되었습니다. PR을 생성하시겠습니까?
-→ /ai-dev.pr PROJ-32398
+→ /ai-dev.pr PK-32398
+```
+
+### 예제 3: 비즈니스 규칙 검증으로 충돌 발견
+
+```
+User: /ai-dev.review PK-32581
+
+Claude: [ai-dev.review 활성화]
+
+자동 검증 중...
+✅ 린트 통과
+✅ CodeRabbit: Critical 0, High 0, Medium 0
+
+spec.md 확인 중...
+✅ 발견: .claude/contexts/work/kidsnote/docs/ai-dev/PK-32581-알림장작성스킴/spec.md
+
+비즈니스 규칙 검증 중...
+
+---
+# PK-32581 코드 리뷰 결과
+
+## 🔍 비즈니스 규칙 검증
+
+### 상태 변수 영향도
+
+#### 상태 변수: isTimeLineMode
+
+**용도**: 추억보기 모드 (읽기 전용 상태)
+
+**할당점 (9개)**:
+| 파일 | 조건 | 설정값 |
+|------|------|--------|
+| MainCoordinator.swift:664 | schemeMemoriesAlbum | false |
+| MainCoordinator.swift:699 | schemeReport | false |
+| MainCoordinator.swift:870 | schemeMoments | true |
+| ... | ... | ... |
+
+**검사점 (4개)**:
+| 파일 | 조건 | 동작 |
+|------|------|------|
+| ReportTableViewController.m:1886 | touchWrite | 차단 알림 표시 |
+| ReportArchiveViewController.swift:380 | checkWriteReportEnable | 작성 차단 |
+
+**새 코드 검증**:
+- [x] 적절한 할당: schemeReportWrite에서 false 설정
+- [ ] **적절한 검사: ❌ 추억보기 모드 상태 체크 누락!**
+
+**위험 평가**: 🔴 높음
+
+### 유사 패턴 비교
+
+| 항목 | schemeReport (기존) | schemeReportWrite (신규) | 일관성 |
+|------|-------------------|------------------------|--------|
+| isTimeLineMode 체크 | ✅ 있음 | ❌ 없음 | ❌ |
+| 에러 핸들링 | ✅ | ✅ | ✅ |
+
+### 기능 충돌 분석
+
+| 기존 기능/모드 | 충돌 가능성 | 영향 | 권장 조치 |
+|---------------|------------|------|----------|
+| 추억보기 모드 | 🔴 높음 | 작성 화면 진입 가능 | isTimeLineMode 체크 추가 |
+
+**충돌 시나리오**:
+1. 전제조건: isTimeLineMode = true (추억보기 중)
+2. 사용자 액션: kidsnote://report/write 스킴 호출
+3. 기대 결과: 목록으로 fallback (작성 차단)
+4. 실제 결과: 작성 화면 진입됨
+5. 충돌 여부: ❌ 규칙 위반
+
+---
+
+## ⚠️ 개선 제안
+
+### 🔴 Critical (머지 전 필수)
+
+**[1] 파일: `MainCoordinator.swift:700`**
+- **문제**: schemeReportWrite에서 추억보기 모드 체크 누락
+- **영향**: 추억보기 모드에서 의도치 않게 작성 화면 진입 가능
+- **개선안**:
+```diff
+case .schemeReportWrite:
++   if UserInfo.shared().isTimeLineMode {
++       showReport(data: nil)  // 목록으로 fallback
++       return
++   }
+    UserInfo.shared().isTimeLineMode = false
+    let schemeData: [String: Any] = ["openWrite": "true"]
+    showReport(data: schemeData)
+```
+
+---
+
+## 판정
+**❌ 변경요청** (Critical 이슈 1건)
+
+---
+
+Critical 이슈를 수정한 후 다시 리뷰해주세요.
+수정 후: /ai-dev.review PK-32581
 ```
 
 ---
@@ -517,7 +836,7 @@ gh pr review {PR_NUMBER} --request-changes --body "{개선 사항}"
 리뷰가 승인되었습니다.
 
 다음 단계로 PR을 생성하시겠습니까?
-→ /ai-dev.pr PROJ-32398
+→ /ai-dev.pr PK-32398
 ```
 
 ### 변경요청 시
@@ -526,7 +845,7 @@ gh pr review {PR_NUMBER} --request-changes --body "{개선 사항}"
 ❌ 변경요청
 
 Critical 이슈를 수정한 후 다시 리뷰해주세요.
-수정 후: /ai-dev.review PROJ-32398
+수정 후: /ai-dev.review PK-32398
 ```
 
 ---
@@ -542,5 +861,5 @@ Critical 이슈를 수정한 후 다시 리뷰해주세요.
 ---
 
 **Created:** 2026-01-23
-**Updated:** 2026-01-27
-**Version:** 3.0 (팀 규칙 통합, iOS DoD, 영향도 분석)
+**Updated:** 2026-01-28
+**Version:** 4.0 (비즈니스 규칙 검증 추가 - 상태 변수 영향도, 요구사항 역추적, 유사 패턴 비교, 기능 충돌 분석)

@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.0] - 2026-01-28
+
+### Added
+- **Business Rules Validation** in review phase
+  - State variable impact analysis (`is*`, `has*`, `should*` patterns)
+  - Requirement traceability (spec.md cross-check)
+  - Similar pattern comparison
+  - Feature conflict detection
+- New review options: `--biz-rules`, `--no-biz-rules`, `--deep`
+- CodeRabbit result verification step (mandatory before synthesis)
+- Business rules validation example in documentation
+
+### Changed
+- Updated ai-dev.review to v4.0
+- Enhanced review output template with business rules section
+
 ## [4.0.0] - 2026-01-27
 
 ### Added
