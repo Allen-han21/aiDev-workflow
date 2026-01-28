@@ -7,6 +7,8 @@ description: AI 협업 개발 스킬. TPL 분석 → Developer 구현 → 리뷰
 
 AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR 생성까지 전체 과정을 관리합니다.
 
+**v5.0 신규**: Mega-skill 패턴 + 다단계 검증 + Sentinel 자동 관리
+
 ---
 
 ## 목적
@@ -14,77 +16,325 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 - JIRA 티켓 기반 개발 자동화
 - 일관된 워크플로우 제공
 - 문서화 자동화 (analyze, spec, plan)
+- **다단계 검증** (plan-check, code-check, work-check)
 - Claude + Codex 크로스 체크를 통한 품질 향상
+- **Sentinel 패턴으로 긴 워크플로우 지원**
 
 ## 사용 시점
 
 - `/ai-dev PROJ-XXXXX` - 전체 워크플로우 시작
+- `/ai-dev PROJ-XXXXX --auto` - 전체 자동화 (Mega-skill)
 - `/ai-dev PROJ-XXXXX --figma https://...` - Figma 포함
+- `/ai-dev help` - 사용 방법 표시
 
 ---
 
-## 워크플로우 개요
+## Help (사용 방법)
+
+`/ai-dev help` 실행 시 다음 내용을 표시합니다:
+
+~~~markdown
+## ai-dev v5.0 사용 방법
+
+### 기본 명령어
+
+```bash
+# 전체 워크플로우 (단계별 확인)
+/ai-dev PROJ-12345
+
+# 전체 자동화 (Mega-skill)
+/ai-dev PROJ-12345 --auto
+
+# Figma 디자인 포함
+/ai-dev PROJ-12345 --figma https://figma.com/design/xxx
+
+# 빠른 개발 (검증 스킵)
+/ai-dev PROJ-12345 --auto --skip-checks
+
+# 특정 Phase부터 시작
+/ai-dev PROJ-12345 --from impl
+
+# 복잡한 문제 (최고 품질)
+/ai-dev PROJ-12345 --no-codex --ultrathink
+```
+
+---
+
+### 워크플로우 (9단계)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ai-dev 워크플로우                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  [입력] JIRA 티켓 번호 + Figma (선택)                             │
-│                                                                 │
-│         ↓                                                       │
-│  Phase 0: ai-dev.analyze [plan mode]                           │
-│  → JIRA 조회 (본문+댓글), Figma(figma-ocaml), 코드 분석           │
-│  → 출력: analyze.md                                             │
-│                                                                 │
-│         ↓                                                       │
-│  Phase 1: ai-dev.spec [plan mode]                              │
-│  → Claude + Codex 크로스 체크 → 스펙 확정                         │
-│  → 출력: spec.md                                                │
-│                                                                 │
-│         ↓                                                       │
-│  Phase 2: ai-dev.plan [plan mode]                              │
-│  → Codex MCP 계획 생성 → Claude 검증 → 사용자 구현 승인            │
-│  → 출력: plan.md                                                │
-│                                                                 │
-│         ↓ [plan mode 해제]                                      │
-│  Phase 3: ai-dev.impl                                          │
-│  → Task별 구현 + 로컬 커밋 + 테스트([DEBUG]) + Xcode 실행     │
-│  → 출력: 소스 코드                                               │
-│                                                                 │
-│         ↓                                                       │
-│  Phase 4: ai-dev.review                                        │
-│  → 빌드/린트 검증, 코드 리뷰                                      │
-│  → 출력: 승인/변경요청                                           │
-│                                                                 │
-│         ↓ (승인 시)                                             │
-│  Phase 5: ai-dev.pr                                            │
-│  → Push, GitHub PR 생성                                         │
-│  → 출력: PR URL                                                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Task 1: analyze     → JIRA + Figma + 코드 분석             │
+│      ↓                                                      │
+│  Task 2: spec        → Claude + Codex 크로스 체크           │
+│      ↓                                                      │
+│  Task 3: plan-check  → 5개 validators + devil's advocate ★  │
+│      ↓                                                      │
+│  Task 4: plan        → Codex MCP 계획 생성                  │
+│      ↓                                                      │
+│  Task 5: impl        → Task별 구현 + 로컬 커밋              │
+│      ↓                                                      │
+│  Task 6: code-check  → DRY/SOLID/Complexity 분석 ★          │
+│      ↓                                                      │
+│  Task 7: work-check  → 6개 bug checkers ★                   │
+│      ↓                                                      │
+│  Task 8: review      → 비즈니스 규칙 + 최종 판정            │
+│      ↓                                                      │
+│  Task 9: pr          → Push + GitHub PR 생성                │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+### 개별 스킬 실행
+
+```bash
+/ai-dev.analyze PROJ-12345      # 분석
+/ai-dev.spec PROJ-12345         # 스펙 정의
+/ai-dev.plan-check PROJ-12345   # 계획 검증 (5개 validators)
+/ai-dev.plan PROJ-12345         # 구현 계획
+/ai-dev.impl PROJ-12345         # 코드 구현
+/ai-dev.code-check PROJ-12345   # 품질 검사 (DRY/SOLID)
+/ai-dev.work-check PROJ-12345   # 버그 검사 (6개 checkers)
+/ai-dev.review PROJ-12345       # 리뷰 + 최종 판정
+/ai-dev.pr PROJ-12345           # PR 생성
+```
+
+---
+
+### Sentinel (세션 관리)
+
+```bash
+/ai-dev.sentinel save                    # 수동 저장
+/ai-dev.sentinel list                    # 저장 목록
+/ai-dev.sentinel restore {session-id}    # 복원
+/ai-dev.sentinel cleanup --older-than 7d # 정리
+```
+
+**자동 저장 트리거:** Phase 전환, Task 완료, 대화 턴 > 20, "저장해줘"
+
+---
+
+### 옵션 정리
+
+| 옵션 | 설명 |
+|------|------|
+| `--auto` | 전체 파이프라인 자동 실행 |
+| `--figma URL` | Figma 디자인 포함 |
+| `--from PHASE` | 특정 Phase부터 시작 |
+| `--to PHASE` | 특정 Phase까지만 |
+| `--skip-checks` | plan-check, code-check, work-check 스킵 |
+| `--no-codex` | Codex MCP 비활성화 |
+| `--ultrathink` | Extended thinking 활성화 |
+
+---
+
+### 검증 체커 (총 14개)
+
+| Phase | 체커 | 역할 |
+|-------|------|------|
+| **plan-check** | completeness-checker | spec→plan 요구사항 누락 |
+| | pattern-compliance | AGENTS.md 컨벤션 준수 |
+| | feasibility-assessor | 기술적 실현 가능성 |
+| | risk-assessor | 회귀/보안 위험 |
+| | scope-discipline | gold-plating 감지 |
+| | + devil's advocate | false positive 감소 |
+| **code-check** | DRY Checker | 중복 코드 |
+| | SOLID Checker | 설계 원칙 |
+| | Complexity Analyzer | 복잡도 |
+| **work-check** | Edge Case Hunter | 경계값 버그 |
+| | Race Condition Detector | 동시성 버그 |
+| | State Corruption Finder | 상태 오염 |
+| | Memory Leak Hunter | 메모리 누수 |
+| | Input Validation Checker | 입력 검증 |
+| | Regression Detector | 회귀 버그 |
+
+---
+
+### 출력 파일
+
+```
+~/~/.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx}/
+├── analyze.md              # Phase 0
+├── spec.md                 # Phase 1
+├── plan-check-report.md    # Phase 2.5 ★
+├── plan.md                 # Phase 2
+├── code-check-report.md    # Phase 3.5 ★
+└── work-check-report.md    # Phase 3.8 ★
+```
+~~~
+
+---
+
+## 워크플로우 개요 (v5.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    ai-dev 워크플로우 v5.0 (Mega-skill)                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  [입력] JIRA 티켓 번호 + Figma (선택)                                    │
+│                                                                         │
+│  ┌───────────────────────── TASK CHAIN ─────────────────────────┐      │
+│  │                                                               │      │
+│  │  Task 1: analyze [plan mode]                                 │      │
+│  │  → JIRA 조회, Figma, 코드 분석 → analyze.md                   │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 1]                                        │      │
+│  │  Task 2: spec [plan mode]                                    │      │
+│  │  → Claude + Codex 크로스 체크 → spec.md                       │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 2]                                        │      │
+│  │  Task 3: plan-check ★ 신규 [plan mode]                       │      │
+│  │  → 5개 validators + devil's advocate → plan-check-report.md  │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 3]                                        │      │
+│  │  Task 4: plan [plan mode]                                    │      │
+│  │  → Codex MCP 계획 생성 + Claude 검증 → plan.md               │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 4] [plan mode 해제]                       │      │
+│  │  Task 5: impl                                                 │      │
+│  │  → Task별 구현 + 로컬 커밋 + 테스트                           │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 5]                                        │      │
+│  │  Task 6: code-check ★ 신규                                   │      │
+│  │  → DRY/SOLID/Complexity 분석 → code-check-report.md          │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 6]                                        │      │
+│  │  Task 7: work-check ★ 신규                                   │      │
+│  │  → 6개 병렬 bug checkers → work-check-report.md              │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 7]                                        │      │
+│  │  Task 8: review                                               │      │
+│  │  → 비즈니스 규칙 검증 + 최종 승인 판정                         │      │
+│  │      │                                                        │      │
+│  │      ▼ [blockedBy: 8] (승인 시)                              │      │
+│  │  Task 9: pr                                                   │      │
+│  │  → Push + GitHub PR 생성 → PR URL                            │      │
+│  │                                                               │      │
+│  └───────────────────────────────────────────────────────────────┘      │
+│                                                                         │
+│  [SENTINEL PATTERN]                                                     │
+│  긴 대화 시 자동 저장 → 새 세션에서 복원 → 이어서 실행                   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 신규 검증 스킬 (v5.0)
+
+### ai-dev.plan-check (Phase 2.5)
+
+**5개 병렬 validators + devil's advocate로 계획 검증**
+
+| Validator | 역할 |
+|-----------|------|
+| completeness-checker | spec→plan 요구사항 누락 검증 |
+| pattern-compliance | AGENTS.md 컨벤션 준수 |
+| feasibility-assessor | 기술적 실현 가능성 |
+| risk-assessor | 회귀/보안 위험 평가 |
+| scope-discipline | gold-plating/스코프 초과 감지 |
+
+**Devil's Advocate**: 모든 findings 도전 → false positive 감소
+
+### ai-dev.code-check (Phase 3.5)
+
+**품질 전용 검증 (review에서 분리)**
+
+- DRY Checker (중복 코드)
+- SOLID Checker (설계 원칙)
+- Complexity Analyzer (복잡도)
+
+### ai-dev.work-check (Phase 3.8)
+
+**6개 병렬 bug checkers**
+
+- Edge Case Hunter
+- Race Condition Detector
+- State Corruption Finder
+- Memory Leak Hunter
+- Input Validation Checker
+- Regression Detector
 
 ---
 
 ## 문서 저장 경로
 
-모든 문서는 프로젝트 내 중앙 저장소에 저장:
-
 ```
-.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/
-├── analyze.md            # Phase 0 출력
-├── spec.md               # Phase 1 출력
-└── plan.md               # Phase 2 출력
+~/~/.claude/contexts/work/my-project/docs/ai-dev/{PROJ-xxxx-개발내용}/
+├── analyze.md              # Phase 0 출력
+├── spec.md                 # Phase 1 출력
+├── plan-check-report.md    # Phase 2.5 출력 ★ 신규
+├── plan.md                 # Phase 2 출력
+├── code-check-report.md    # Phase 3.5 출력 ★ 신규
+└── work-check-report.md    # Phase 3.8 출력 ★ 신규
 ```
 
-**폴더명 생성 규칙:**
-- 티켓 번호: JIRA 티켓 키 (예: PROJ-32398)
-- 개발내용: JIRA 티켓 제목에서 추출
-  - 공백 → 하이픈으로 변환
-  - 특수문자 제거
-  - 최대 30자
-- 예: `PROJ-32398-원생관리-검색기능`
+---
+
+## 옵션
+
+| 옵션 | 설명 | 적용 |
+|------|------|------|
+| `--auto` | 전체 파이프라인 자동 실행 (Mega-skill) | 전체 |
+| `--figma URL` | Figma 디자인 포함 | analyze |
+| `--from PHASE` | 특정 Phase부터 시작 | 전체 |
+| `--to PHASE` | 특정 Phase까지만 | 전체 |
+| `--skip-checks` | plan-check, code-check, work-check 스킵 | 전체 |
+| `--no-codex` | Codex MCP 비활성화 | spec, plan |
+| `--ultrathink` | Extended thinking 활성화 | spec, plan |
+
+### 사용 예시
+
+```bash
+# 전체 워크플로우 (기본 - 단계별 확인)
+/ai-dev PROJ-12345
+
+# Mega-skill 자동화 (확인 없이 전체 실행)
+/ai-dev PROJ-12345 --auto
+
+# 빠른 개발 (검증 스킵)
+/ai-dev PROJ-12345 --auto --skip-checks
+
+# Figma 포함
+/ai-dev PROJ-12345 --figma https://figma.com/design/xxx
+
+# 구현부터 시작 (이미 계획이 있을 때)
+/ai-dev PROJ-12345 --from impl
+
+# 복잡한 문제 (최고 품질)
+/ai-dev PROJ-12345 --no-codex --ultrathink
+```
+
+---
+
+## Sentinel 연동 (긴 워크플로우 지원)
+
+긴 대화로 컨텍스트 임계치에 도달하면:
+
+1. **자동 저장**: 현재 상태를 sentinel 파일에 저장
+2. **새 세션 스폰**: 복원 명령어 안내
+3. **이어서 실행**: 중단된 Task부터 계속
+
+### 자동 저장 트리거
+
+| 트리거 | 조건 |
+|--------|------|
+| Phase 전환 | analyze→spec, spec→plan 등 |
+| Task 완료 | 각 Task 커밋 후 |
+| 명시적 요청 | "저장해줘", "세이브" |
+| 긴 대화 | 대화 턴 > 20 |
+
+### 복원
+
+```bash
+# 저장된 세션 목록
+/ai-dev.sentinel list
+
+# 세션 복원
+/ai-dev.sentinel restore sentinel-2026-01-28-153000
+```
 
 ---
 
@@ -92,19 +342,15 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 
 ### Phase 0: ai-dev.analyze
 
-**모드**: plan mode (분석 전용, 파일 수정 안함)
+**모드**: plan mode
 
 **입력**: JIRA 티켓 번호, Figma URL (선택)
 
 **프로세스**:
 1. JIRA 티켓 조회 (본문 + 댓글)
-2. Figma URL 자동 감지 → figma-ocaml MCP로 디자인 컨텍스트 추출
+2. Figma URL 자동 감지 → figma-ocaml MCP로 디자인 추출
 3. Explore 에이전트로 iOS 코드베이스 탐색
-4. **Android 코드 참조** (`~/Dev/Repo/my-android-app`)
-   - 비즈니스 로직 참조
-   - API 패턴 확인
-   - 엣지 케이스 처리 참고
-   - 플랫폼 일관성 확인
+4. Android 코드 참조
 5. 엣지 케이스 식별
 6. 확인 필요 사항 AskUserQuestion
 
@@ -118,46 +364,43 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 
 **프로세스**:
 1. 모델 최적화 질문 생성
-2. **Claude + Codex 병렬 분석**
-   - Claude: 대화 맥락 기반 분석
-   - Codex MCP: 코드 탐색 기반 분석
-3. **크로스 체크**
-   - Claude에게 Codex 답변 전달 → 비교/보완
-   - Codex에게 Claude 답변 전달 (codex-reply) → 비교/보완
-4. 종합: 공통 합의 → spec.md, 선택 필요 → AskUserQuestion
-5. 사용자 승인
+2. Claude + Codex 병렬 분석
+3. 크로스 체크 (상호 검토)
+4. 종합 및 사용자 승인
 
 **출력**: `spec.md`
+
+### Phase 2.5: ai-dev.plan-check ★ 신규
+
+**모드**: plan mode
+
+**입력**: spec.md, plan.md (초안)
+
+**프로세스**:
+1. 5개 validators 병렬 실행
+2. Findings 집계 (P0-P3)
+3. Devil's advocate 도전
+4. 리포트 생성 및 판정
+
+**출력**: `plan-check-report.md`
 
 ### Phase 2: ai-dev.plan
 
 **모드**: plan mode
 
-**입력**: spec.md
+**입력**: spec.md, plan-check-report.md
 
 **프로세스**:
-1. **Codex MCP로 계획 생성**
-   ```
-   mcp__codex__codex(
-     prompt: "스펙 기반 구현 계획 작성",
-     cwd: "~/Dev/Repo/my-ios-app",
-     approval-policy: "on-failure",
-     sandbox: "read-only"
-   )
-   ```
-2. **Claude 검증**
-   - AGENTS.md 코딩 컨벤션 준수 확인
-   - 파일 경로 정확성 검증
-   - 의존성 순서 타당성 검토
-   - 누락 Task 확인
-3. 보정 및 plan.md 생성
+1. Codex MCP로 계획 생성
+2. Claude 검증 (AGENTS.md 준수)
+3. plan-check 결과 반영
 4. 사용자 구현 승인
 
 **출력**: `plan.md`
 
 ### Phase 3: ai-dev.impl
 
-**모드**: plan mode 해제 (Developer 역할)
+**모드**: plan mode 해제
 
 **입력**: plan.md
 
@@ -165,32 +408,48 @@ AI와 협업하여 개발하는 통합 워크플로우입니다. 분석부터 PR
 ```
 for each Task in plan.md:
     1. Task 상세 확인
-    2. 의존성 Task 완료 여부 확인
-    3. 코드 구현 (AGENTS.md 컨벤션 준수)
-    4. 빌드 검증 (xcodebuild)
-    5. 테스트
-       - 테스트 코드 가능 → Unit Test
-       - UI 관련 → [DEBUG] 로그 추가
-    6. 로컬 커밋 생성
-       - 형식: [PROJ-XXXXX] <Type>(<Scope>): <Subject>
-    7. plan.md에 완료 표시
+    2. 의존성 Task 완료 확인
+    3. 코드 구현
+    4. 빌드 검증
+    5. 테스트 (Unit Test 또는 [DEBUG] 로그)
+    6. 로컬 커밋
+    7. plan.md 업데이트
 ```
 
-**모든 Task 완료 후**:
-1. Xcode + 시뮬레이터 실행 (osascript)
-2. [DEBUG] 로그로 기능 확인
-3. 사용자 "테스트 완료" 후 로그 삭제
+**출력**: 소스 코드 + 로컬 커밋
 
-**출력**: 소스 코드 + 로컬 커밋들
+### Phase 3.5: ai-dev.code-check ★ 신규
+
+**입력**: 구현 완료된 코드
+
+**프로세스**:
+1. 정적 분석 (SwiftLint, Build)
+2. 품질 분석 (DRY, SOLID, Complexity) - 병렬 3개
+3. 문서화 검증
+4. 리포트 생성
+
+**출력**: `code-check-report.md`
+
+### Phase 3.8: ai-dev.work-check ★ 신규
+
+**입력**: 구현 완료된 코드 + spec.md
+
+**프로세스**:
+1. 6개 bug checkers 병렬 실행
+2. Bug triage (심각도 분류)
+3. 재현 시나리오 작성
+4. 리포트 생성
+
+**출력**: `work-check-report.md`
 
 ### Phase 4: ai-dev.review
 
-**입력**: 변경된 코드
+**입력**: code-check-report.md, work-check-report.md, 변경된 코드
 
 **프로세스**:
-1. 빌드/린트/테스트 검증
-2. 코드 리뷰
-3. 승인/변경요청 판정
+1. 자동 검증 (린트)
+2. 비즈니스 규칙 검증
+3. 최종 승인/변경요청 판정
 
 **출력**: 리뷰 결과
 
@@ -200,223 +459,78 @@ for each Task in plan.md:
 
 **프로세스**:
 1. Push
-2. GitHub PR 생성 (gh CLI)
+2. GitHub PR 생성
 
 **출력**: PR URL
 
 ---
 
-## 옵션
-
-| 옵션 | 설명 | 적용 Phase |
-|------|------|-----------|
-| `--figma URL` | Figma 디자인 포함 | analyze |
-| `--from PHASE` | 특정 Phase부터 시작 | 전체 |
-| `--to PHASE` | 특정 Phase까지만 | 전체 |
-| `--no-codex` | Codex MCP 비활성화 (Claude만 사용) | spec, plan, review |
-| `--ultrathink` | Extended thinking 활성화 | spec, plan |
-
-### 사용 예시
-
-```bash
-# 전체 워크플로우
-/ai-dev PROJ-12345
-
-# Figma 포함
-/ai-dev PROJ-12345 --figma https://figma.com/design/xxx
-
-# 분석부터 계획까지만
-/ai-dev PROJ-12345 --to plan
-
-# 구현부터 시작 (이미 계획이 있을 때)
-/ai-dev PROJ-12345 --from impl
-
-# Codex 쿼터 절약 (Claude만 사용)
-/ai-dev PROJ-12345 --no-codex
-
-# 복잡한 문제 (Codex + ultrathink)
-/ai-dev PROJ-12345 --ultrathink
-
-# 복잡한 문제 + Codex 쿼터 없음 (최고 품질)
-/ai-dev PROJ-12345 --no-codex --ultrathink
-
-# 옵션 먼저도 가능
-/ai-dev --no-codex --ultrathink PROJ-12345
-```
-
-> **참고**: 옵션 위치는 자유롭습니다. 티켓 번호 앞/뒤 모두 인식됩니다.
-
----
-
-## 사용자 개입 포인트
-
-| Phase | 개입 시점 | 내용 |
-|-------|----------|------|
-| analyze | 질문 | 엣지 케이스, 요구사항 확인 |
-| spec | 크로스 체크 후 | 선택 사항 결정, 스펙 승인 |
-| plan | 검증 후 | 계획 검토 및 구현 승인 |
-| impl | 각 Task | 다음 Task 진행 여부 (--auto 가능) |
-| impl | 완료 후 | 테스트 완료 확인 |
-| review | 판정 후 | 변경요청 시 수정 |
-| pr | 생성 전 | 최종 확인 |
-
----
-
-## 크로스 체크 메커니즘 (spec Phase)
+## 예제: Mega-skill 자동화
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    크로스 체크 흐름                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  [1] analyze.md → 모델 최적화 질문 생성                          │
-│                                                                 │
-│  [2] 병렬 분석                                                   │
-│      ┌──────────────────┐    ┌──────────────────┐              │
-│      │ Claude (내부)     │    │ Codex MCP        │              │
-│      │ - 대화 맥락       │    │ - 코드 탐색      │              │
-│      │ - 사용자 의도     │    │ - 패턴 매칭      │              │
-│      └────────┬─────────┘    └────────┬─────────┘              │
-│               ↓                       ↓                        │
-│           Claude 답변             Codex 답변                    │
-│                                                                 │
-│  [3] 크로스 리뷰                                                 │
-│      ┌──────────────────────────────────────────────┐          │
-│      │ Claude → Codex 검토                           │          │
-│      │ "Codex 분석에 대해 동의/보완/다른관점"         │          │
-│      │                                              │          │
-│      │ Codex → Claude 검토 (codex-reply)            │          │
-│      │ "Claude 분석에 대해 동의/보완/권장사항"        │          │
-│      └──────────────────────────────────────────────┘          │
-│                                                                 │
-│  [4] 종합                                                       │
-│      ✅ 공통 합의 → spec.md 반영                                │
-│      ⚖️ 선택 필요 → AskUserQuestion                             │
-│      ❓ 미결정 → 추가 확인                                       │
-│                                                                 │
-│  [5] 사용자 승인 → spec.md 생성                                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+User: /ai-dev PROJ-32398 --auto
 
----
+Claude: [ai-dev 활성화 - Mega-skill 모드]
 
-## 예제
+Task Chain 생성됨 (9개 Task):
+  1. analyze [pending]
+  2. spec [blocked by 1]
+  3. plan-check [blocked by 2]
+  4. plan [blocked by 3]
+  5. impl [blocked by 4]
+  6. code-check [blocked by 5]
+  7. work-check [blocked by 6]
+  8. review [blocked by 7]
+  9. pr [blocked by 8]
 
-### 예제 1: 전체 워크플로우
+===== Task 1: analyze 시작 =====
+JIRA 조회 중... PROJ-32398: 검색 기능
+[분석 진행]
+✅ Task 1 완료 - analyze.md 저장됨
 
-```
-User: /ai-dev PROJ-32398
-
-Claude: [ai-dev 활성화]
-
-===== Phase 0: 분석 =====
-JIRA 조회 중... PROJ-32398: 원생 검색 기능
-본문 + 댓글 수집 완료
-
-Figma URL 감지됨:
-https://figma.com/design/xxx?node-id=123:456
-figma-ocaml MCP로 디자인 컨텍스트 추출 중...
-
-코드 분석 중...
-[Explore 에이전트 실행]
-
-엣지 케이스:
-- 빈 검색어
-- 결과 없음
-- 네트워크 오류
-
-확인이 필요합니다:
-[AskUserQuestion: 검색 디바운스 시간은?]
-
-User: 300ms
-
-Claude: 분석 완료. analyze.md 저장됨.
-
-===== Phase 1: 스펙 확정 =====
+===== Task 2: spec 시작 =====
 Claude + Codex 병렬 분석 중...
+✅ Task 2 완료 - spec.md 저장됨
 
-[크로스 체크 결과]
-- 공통 합의: 디바운스 적용, 기존 Entity 활용
-- 선택 필요: 빈 결과 표시 방식
+===== Task 3: plan-check 시작 =====
+5개 validators 병렬 실행 중...
+  - completeness-checker ✅
+  - pattern-compliance ✅
+  - feasibility-assessor ✅
+  - risk-assessor ✅
+  - scope-discipline ✅
+Devil's advocate 실행 중...
+✅ Task 3 완료 - plan-check-report.md 저장됨
 
-[AskUserQuestion: EmptyView vs 인라인 메시지?]
-
-User: 인라인 메시지
-
-Claude: 스펙 확정. spec.md 저장됨.
-
-===== Phase 2: 계획 수립 =====
+===== Task 4: plan 시작 =====
 Codex MCP로 계획 생성 중...
-Claude 검증 중...
+✅ Task 4 완료 - plan.md 저장됨
 
-Task 분해:
-- Task 1.1: Entity 정의
-- Task 2.1: Reactor 검색 Action 추가
-- Task 2.2: 디바운스 로직 구현
-- Task 3.1: SearchBar UI 추가
+===== Task 5: impl 시작 =====
+[Task별 구현 진행]
+...
 
-구현을 시작하시겠습니까?
+⚠️ 컨텍스트 80% 도달 - Sentinel 자동 저장
+Session ID: sentinel-2026-01-28-153000
 
-User: 구현 시작
-
-Claude: plan.md 저장됨. plan mode 해제.
-
-===== Phase 3: 구현 =====
-Task 1.1 시작...
-[코드 작성]
-[빌드 검증] ✅
-[로컬 커밋] abc1234
-
-✅ Task 1.1 완료
-다음 Task로 진행하시겠습니까?
-
-User: Y
-
-... (각 Task 반복) ...
-
-모든 Task 완료.
-Xcode 시뮬레이터 실행 중...
-
-[테스트 안내]
-1. 시뮬레이터에서 원생 검색 기능 확인
-2. Xcode Console에서 [DEBUG] 검색
-3. 정상 동작 확인 후 "테스트 완료"라고 해주세요
-
-User: 테스트 완료
-
-Claude: [DEBUG] 로그 삭제 완료.
-
-===== Phase 4: 리뷰 =====
-빌드 검증... ✅
-린트 검사... ✅
-코드 리뷰 중...
-
-✅ 승인 (Critical 이슈 없음)
-
-===== Phase 5: PR 생성 =====
-Push 중...
-PR 생성 중...
-
-PR #7350 생성됨
-https://github.com/my-project/my-ios-app/pull/7350
-
-워크플로우 완료!
+복원 명령어:
+/ai-dev.sentinel restore sentinel-2026-01-28-153000
 ```
 
 ---
 
 ## 개별 Phase 실행
 
-전체 워크플로우 대신 개별 Phase만 실행 가능:
-
 ```bash
-/ai-dev.analyze PROJ-12345   # Phase 0만
-/ai-dev.spec PROJ-12345      # Phase 1만
-/ai-dev.plan PROJ-12345      # Phase 2만
-/ai-dev.impl PROJ-12345      # Phase 3만
-/ai-dev.review PROJ-12345    # Phase 4만
-/ai-dev.pr PROJ-12345        # Phase 5만
+/ai-dev.analyze PROJ-12345     # Phase 0
+/ai-dev.spec PROJ-12345        # Phase 1
+/ai-dev.plan-check PROJ-12345  # Phase 2.5 ★ 신규
+/ai-dev.plan PROJ-12345        # Phase 2
+/ai-dev.impl PROJ-12345        # Phase 3
+/ai-dev.code-check PROJ-12345  # Phase 3.5 ★ 신규
+/ai-dev.work-check PROJ-12345  # Phase 3.8 ★ 신규
+/ai-dev.review PROJ-12345      # Phase 4
+/ai-dev.pr PROJ-12345          # Phase 5
 ```
 
 ---
@@ -425,24 +539,23 @@ https://github.com/my-project/my-ios-app/pull/7350
 
 | 스킬 | 용도 |
 |------|------|
+| `/ai-dev.sentinel` | 세션 저장/복원 |
 | `/jira-get` | JIRA 티켓 조회 |
-| `/jira-update` | JIRA 티켓 업데이트 |
-| `/figma-design-spec` | Figma 디자인 분석 (대안) |
+| `/figma-design-spec` | Figma 디자인 분석 |
 | `/codex-hotfix` | 리뷰 이슈 빠른 수정 |
 
 ---
 
 ## 주의사항
 
-- Phase 0~2는 plan mode에서 실행 (분석/설계 전용)
-- Phase 3부터 plan mode 해제 (코드 수정 가능)
+- Phase 0~4는 plan mode (분석/설계 전용)
+- Phase 5부터 plan mode 해제 (코드 수정 가능)
 - 각 Phase는 이전 Phase 출력에 의존
-- `--from` 옵션 사용 시 필요한 파일이 있어야 함
-- 로컬 커밋은 Phase 3 (impl)에서 Task별 생성
-- Push/PR은 Phase 5 (pr)에서만 수행
+- `--auto` 모드에서도 Critical 이슈 발견 시 중단
+- Sentinel 자동 저장으로 긴 워크플로우 지원
 
 ---
 
 **Created:** 2026-01-23
-**Updated:** 2026-01-27
-**Version:** 4.0 (크로스 체크 + Codex MCP 통합)
+**Updated:** 2026-01-28
+**Version:** 5.0 (Mega-skill + 다단계 검증 + Sentinel)
