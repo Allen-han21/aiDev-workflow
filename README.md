@@ -4,6 +4,13 @@
 
 JIRA 티켓 분석부터 PR 생성까지, AI가 단계별로 도와주는 개발 워크플로우입니다.
 
+## v5.2 변경사항
+
+- **pre-review 스킬 추가**: JIRA 티켓 사전검토 + Draft PR 생성
+  - 경량 분석 → Draft 계획 → JIRA 업데이트 → Draft 구현 → Draft PR
+  - 본격 개발 전 기능 테스트가 가능한 Draft 상태를 빠르게 생성
+  - 기존 ai-dev 워크플로우에 영향 없음 (독립 스킬)
+
 ## v5.1 변경사항
 
 - **Mega-skill 패턴**: `--auto` 옵션으로 TaskCreate/TaskUpdate 기반 자동 파이프라인
@@ -49,6 +56,12 @@ cd aiDev-workflow
 
 # 도움말 보기
 /ai-dev help
+
+# 사전검토 (Draft PR 빠르게 생성)
+/ai-dev.pre-review PROJ-12345
+/ai-dev.pre-review PROJ-12345 --figma https://figma.com/...
+/ai-dev.pre-review PROJ-12345 --skip-jira  # JIRA 업데이트 스킵
+/ai-dev.pre-review PROJ-12345 --skip-pr    # Draft PR 생성 스킵
 
 # 개별 단계 실행
 /ai-dev.analyze PROJ-12345     # 0단계: 분석
@@ -131,6 +144,61 @@ cd aiDev-workflow
 | 5 | `ai-dev.pr` | Dev | Push + GitHub PR | PR URL |
 
 ★ = v5.0에서 추가됨
+
+## 사전검토 (pre-review) ★ v5.2
+
+본격 개발 전 **기능 테스트가 가능한 Draft 상태**를 빠르게 생성하는 독립 스킬입니다.
+
+```bash
+/ai-dev.pre-review PROJ-12345
+```
+
+### 워크플로우
+
+```
+Step 1: Quick Analyze (경량 분석)
+├── JIRA 티켓 조회
+├── 키워드 기반 코드 탐색 (핵심 파일 2-3개)
+└── 출력: quick-analyze.md
+
+Step 2: Draft Plan (간소화된 계획)
+├── Phase/Task 분해
+└── 출력: draft-plan.md
+
+Step 3: JIRA Update
+├── 기존 Description 읽기
+└── 사전검토 결과 추가 (구분선 + 템플릿)
+
+Step 4: Draft Implementation
+├── Task별 골격 코드 구현
+├── Happy Path 로직만
+└── 로컬 커밋
+
+Step 5: Draft PR
+├── /ai-dev.pr --draft 호출
+└── Draft PR 생성
+```
+
+### Draft 구현 기준
+
+| 레이어 | Draft 수준 |
+|--------|-----------|
+| Entity/Model | 100% 완성 |
+| Repository | 골격 (API 연동) |
+| Reactor/ViewModel | 기본 바인딩 (Happy Path) |
+| UI | 레이아웃 완성 (세부 스타일 생략) |
+| 에러 처리 | 생략 |
+| 테스트 | [allen-test] 로그만 |
+
+### ai-dev 연계
+
+사전검토 후 완성 개발이 필요할 때:
+
+```bash
+/ai-dev PROJ-12345 --from impl
+```
+
+**중요**: 기존 ai-dev 9단계 워크플로우에 영향 없음 (독립 스킬)
 
 ## 검증 시스템 (v5.0)
 
