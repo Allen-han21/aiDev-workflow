@@ -2,6 +2,37 @@
 
 이 프로젝트의 주요 변경사항을 기록합니다.
 
+## [5.3.0] - 2026-02-05
+
+### 추가
+- **Neo4j Code Graph MCP 서버** - 코드베이스 그래프 분석
+  - `neo4j_query`: Cypher 쿼리 직접 실행
+  - `neo4j_find_impact`: 파일 변경 영향도 분석 (같은 모듈, 유사 파일, 관련 커밋)
+  - `neo4j_trace_workflow`: ReactorKit Action→Mutation→State 워크플로우 추적
+  - `neo4j_graph_stats`: 그래프 통계 조회 (노드/관계 개수)
+  - **Race Condition 자동 탐지**: 같은 State 필드를 수정하는 여러 Action 감지
+- **ai-dev.resolve-conversation 스킬** - PR 리뷰 코멘트 응답 자동화
+  - 미해결 코멘트 분석
+  - ACCEPT/DISCUSS/DISMISS 판정
+  - 응답 초안 생성
+- **데이터 임포터** (`mcp-servers/neo4j-code-graph/src/importers/`)
+  - `git_history.py`: Git 커밋 히스토리 → Commit, JiraIssue 노드
+  - `code_structure.py`: ReactorKit 구조 → Action, Mutation, StateField 노드
+  - `code_files.py`: Swift 파일 → CodeFile 노드 + SAME_MODULE, DEFINED_IN 관계
+
+### 변경
+- **ai-dev.analyze**: Neo4j 아키텍처 분석 섹션 추가 (Step 3.4.4)
+  - 파일 영향도 분석 (neo4j_find_impact)
+  - Reactor 워크플로우 분석 (neo4j_trace_workflow)
+  - 유사 코드 패턴 조회
+- **ai-dev.work-check**: Neo4j 기반 Race Condition 분석 연동
+  - 그래프 기반 경쟁 Action 탐지
+- **ai-dev.code-check**: Neo4j 영향도 분석 연동
+  - 변경 파일의 모듈 내 영향 범위 분석
+- README.md v5.3 업데이트
+  - Neo4j Code Graph MCP 섹션 추가
+  - resolve-conversation 섹션 추가
+
 ## [5.2.0] - 2026-02-04
 
 ### 추가
