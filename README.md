@@ -4,6 +4,20 @@
 
 JIRA 티켓 분석부터 PR 생성까지, AI가 단계별로 도와주는 개발 워크플로우입니다.
 
+## v5.3 변경사항 (2026-02-05)
+
+- **Neo4j Code Graph MCP 서버 추가**: 코드 그래프 기반 분석
+  - `neo4j_query`: Cypher 쿼리 직접 실행
+  - `neo4j_find_impact`: 파일 변경 영향도 분석
+  - `neo4j_trace_workflow`: Reactor 워크플로우 추적 + **Race Condition 자동 탐지**
+  - `neo4j_graph_stats`: 그래프 통계 조회
+- **ai-dev 스킬 Neo4j 연동**:
+  - `ai-dev.analyze`: Neo4j 아키텍처 분석 섹션 추가 (Step 3.4.4)
+  - `ai-dev.work-check`: Neo4j 기반 Race Condition 분석
+  - `ai-dev.code-check`: Neo4j 영향도 분석 연동
+- **resolve-conversation 스킬 추가**: PR 리뷰 코멘트 응답 자동화
+  - 미해결 코멘트 분석 → ACCEPT/DISCUSS/DISMISS 판정 → 응답 초안 생성
+
 ## v5.2 변경사항
 
 - **pre-review 스킬 추가**: JIRA 티켓 사전검토 + Draft PR 생성
@@ -24,10 +38,12 @@ JIRA 티켓 분석부터 PR 생성까지, AI가 단계별로 도와주는 개발
 - **9단계 워크플로우**: 분석 → 스펙 → 계획 → 계획검증 → 구현 → 코드검증 → 버그검증 → 리뷰 → PR
 - **AI 크로스 체크**: Claude + Codex MCP 병렬 검증
 - **14개 Validators**: 계획 검증 5개 + 코드 품질 3개 + 버그 탐지 6개
+- **Neo4j 코드 그래프**: 아키텍처 분석 + Race Condition 자동 탐지
 - **Figma 연동**: figma-ocaml MCP로 디자인 컨텍스트 자동 추출
 - **크로스 플랫폼 참조**: iOS/Android 코드베이스 비교 분석
 - **문서 자동 생성**: analyze.md, spec.md, plan.md 자동 생성
 - **세션 관리**: Sentinel 패턴으로 컨텍스트 보존
+- **PR 코멘트 응답**: 리뷰 코멘트 자동 분석 및 응답 초안 생성
 
 ## 빠른 시작
 
@@ -73,6 +89,9 @@ cd aiDev-workflow
 /ai-dev.work-check PROJ-12345  # 3.8단계: 버그 탐지
 /ai-dev.review PROJ-12345      # 4단계: 리뷰
 /ai-dev.pr PROJ-12345          # 5단계: PR 생성
+
+# PR 리뷰 코멘트 응답
+/ai-dev.resolve-conversation   # 미해결 코멘트 분석 및 응답 초안 생성
 ```
 
 ## 워크플로우 개요
@@ -311,6 +330,75 @@ Step 5: Draft PR
 - (선택) [Codex MCP](https://github.com/anthropics/codex-mcp)
 - (선택) [figma-ocaml MCP](https://github.com/anthropics/figma-ocaml)
 - (선택) [apple-docs MCP](https://github.com/anthropics/apple-docs)
+- (선택) [Neo4j Code Graph MCP](mcp-servers/neo4j-code-graph/) - Race Condition 탐지, 영향도 분석
+
+## Neo4j Code Graph MCP 서버
+
+코드베이스를 그래프로 분석하여 아키텍처 이해와 버그 탐지를 강화합니다.
+
+### 설치
+
+```bash
+cd mcp-servers/neo4j-code-graph
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+### 주요 기능
+
+| 도구 | 설명 |
+|------|------|
+| `neo4j_query` | Cypher 쿼리 직접 실행 |
+| `neo4j_find_impact` | 파일 변경 영향도 분석 (같은 모듈, 유사 파일) |
+| `neo4j_trace_workflow` | ReactorKit Action→Mutation→State 추적 |
+| `neo4j_graph_stats` | 그래프 통계 (노드/관계 개수) |
+
+### Race Condition 자동 탐지
+
+```bash
+neo4j_trace_workflow(reactor_name: "LoginReactor")
+```
+
+결과 예시:
+```json
+{
+  "race_condition_risks": [
+    {
+      "state_field": "isLoading",
+      "competing_actions": ["login", "logout"],
+      "risk": "P2",
+      "reason": "2 actions modify same state field"
+    }
+  ]
+}
+```
+
+### ai-dev 연동
+
+Neo4j MCP 서버가 연결되면 ai-dev 스킬들이 자동으로 활용합니다:
+
+- **ai-dev.analyze**: 아키텍처 분석 섹션에 파일 영향도, 워크플로우 분석 추가
+- **ai-dev.work-check**: Race Condition 버그 체커가 Neo4j 그래프 기반 분석 수행
+- **ai-dev.code-check**: 변경 파일의 영향 범위 분석
+
+자세한 내용은 [Neo4j Code Graph README](mcp-servers/neo4j-code-graph/README.md) 참조.
+
+## PR 리뷰 코멘트 응답 (resolve-conversation)
+
+PR에 달린 미해결 리뷰 코멘트를 분석하고 응답 초안을 생성합니다.
+
+```bash
+/ai-dev.resolve-conversation
+```
+
+### 판정 유형
+
+| 판정 | 설명 |
+|------|------|
+| **ACCEPT** | 코멘트 수용 → 코드 수정 + "반영했습니다" 응답 |
+| **DISCUSS** | 추가 논의 필요 → 질문/대안 제시 |
+| **DISMISS** | 반박 가능 → 근거와 함께 의견 제시 |
 
 ## 문서
 
@@ -325,6 +413,6 @@ MIT License - 자세한 내용은 [LICENSE](LICENSE) 참조
 
 ---
 
-**버전**: 5.1
+**버전**: 5.3
 **생성일**: 2026-01-23
-**수정일**: 2026-01-29 (워크플로우 순서 수정 + Sentinel 구현 + README 한글화)
+**수정일**: 2026-02-05 (Neo4j Code Graph MCP + resolve-conversation 스킬 추가)
