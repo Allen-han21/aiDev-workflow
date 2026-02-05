@@ -103,7 +103,10 @@ Grep: "ViewController" --path Sources/Services/ --type swift
 
 ---
 
-## 품질 분석 (Step 3) - 병렬 3개
+## 품질 분석 (Step 3) - 병렬 5개
+
+> **v1.1 추가**: Pattern Consistency Checker, Test Support Checker
+> (PR #7360, #7361 qazqaz1000 ios-review 스킬 피드백 반영)
 
 ### 1. DRY Checker (중복 검증)
 
@@ -167,6 +170,97 @@ Grep: "ViewController" --path Sources/Services/ --type swift
 변경된 파일의 복잡도를 분석하세요.
 임계치를 초과하는 함수/클래스를 식별하세요.
 복잡도 감소를 위한 구체적 방법을 제안하세요.
+```
+
+### 4. Pattern Consistency Checker (패턴 일관성) 🆕
+
+**역할**: 기존 코드와의 패턴 일관성 검증
+
+**검증 항목**:
+- 유사 기능의 기존 구현 패턴과 일치 여부
+- 상태 변수 사용 패턴 (is*, has*, should*)
+- 에러 처리 패턴 일관성
+- 초기화 순서 일관성
+- API 호출 패턴 일관성
+
+**프롬프트 요약**:
+```
+기존 코드와의 패턴 일관성을 검증하세요:
+- 유사한 기능이 이미 구현되어 있나요? 패턴이 일치하나요?
+- 상태 변수 사용이 기존 코드와 일관적인가요?
+- 에러 처리 방식이 동일한가요?
+- 초기화 순서가 기존 패턴을 따르나요?
+
+Grep으로 유사 함수명/패턴을 찾아 비교하세요.
+[질문] 태그로 의도된 차이인지 확인 요청하세요.
+```
+
+**출력 형식**:
+```markdown
+| 새 코드 | 기존 패턴 | 일치 여부 | 비고 |
+|---------|----------|----------|------|
+| {함수} | {기존 함수} | ✅/⚠️ | {차이점} |
+
+**[질문]** {기존 함수}에서는 {패턴}을 사용하는데,
+새 코드에서 {다른 패턴}을 사용한 것은 의도된 차이인가요?
+```
+
+**Neo4j 그래프 기반 자동 패턴 비교** (선택적):
+
+Neo4j MCP 서버 (`neo4j-code-graph`) 연결 시 유사 코드를 자동으로 조회합니다.
+
+```bash
+# 유사도 85% 이상 파일 자동 조회
+mcp__neo4j-code-graph__neo4j_query(cypher: "
+  MATCH (target:CodeFile)-[r:SIMILAR_TO]-(similar:CodeFile)
+  WHERE target.name CONTAINS '{변경된파일명}'
+  AND r.score > 0.85
+  RETURN similar.name, similar.module, r.score
+  ORDER BY r.score DESC LIMIT 5
+")
+```
+
+**Neo4j 출력 형식**:
+```markdown
+#### 유사 코드 자동 발견 (Neo4j)
+
+| 유사 파일 | 모듈 | 유사도 | 비교 결과 |
+|----------|------|--------|----------|
+| {파일명} | {모듈} | 92% | 동일 패턴 확인 |
+| {파일명} | {모듈} | 87% | ⚠️ 초기화 순서 다름 |
+```
+
+**Fallback**: Neo4j 연결 실패 시 기존 Grep 기반 유사 함수 검색만 수행
+
+### 5. Test Support Checker (테스트 지원) 🆕
+
+**역할**: 테스트 용이성 및 테스트 코드 존재 여부 검증
+
+**검증 항목**:
+- 테스트 가능한 구조인지 (의존성 주입, 프로토콜 사용)
+- 관련 테스트 파일 존재 여부
+- 테스트 케이스 추가 필요 여부
+- URLSchemeTestView 등 개발/QA 지원 도구 업데이트 여부
+
+**프롬프트 요약**:
+```
+테스트 지원을 검증하세요:
+- 새 기능에 대한 테스트 파일이 있나요?
+- 의존성 주입이 가능한 구조인가요?
+- URLSchemeTestView 등 개발 도구에 테스트 케이스가 추가되었나요?
+- Mock/Stub 생성이 용이한 구조인가요?
+
+Glob으로 *Tests.swift, *Test.swift 파일을 확인하세요.
+```
+
+**출력 형식**:
+```markdown
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 테스트 파일 존재 | ✅/❌ | {파일명} |
+| 테스트 케이스 추가 | ✅/❌ | {추가된 케이스} |
+| 개발 도구 업데이트 | ✅/❌ | URLSchemeTestView 등 |
+| DI 가능 구조 | ✅/⚠️ | {의존성 주입 상태} |
 ```
 
 ---
@@ -280,6 +374,28 @@ handler.handle()
 - `processData()` → `validateInput()` + `transformData()` + `saveResult()`로 분리
 - 중첩 깊이 감소: guard early return 적용
 
+### Pattern Consistency (패턴 일관성) 🆕
+
+**상태**: ✅ 양호 / ⚠️ 확인 필요
+
+| 새 코드 | 기존 패턴 | 일치 | 비고 |
+|---------|----------|------|------|
+| {handleMomentsScheme} | {setMoments} | ⚠️ | 체험계정 처리 차이 |
+
+**[질문]**: 기존 `setMoments`에서는 체험 계정 체크가 없는데,
+새 `handleMomentsScheme`에서 체험 계정을 제외한 것은 의도된 차이인가요?
+
+### Test Support (테스트 지원) 🆕
+
+**상태**: ✅ 양호 / ⚠️ 개선 필요
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 테스트 파일 존재 | ✅/❌ | {파일명} |
+| 테스트 케이스 추가 | ✅/❌ | {추가된 케이스} |
+| 개발 도구 업데이트 | ✅ | URLSchemeTestView |
+| DI 가능 구조 | ✅/⚠️ | {상태} |
+
 ---
 
 ## 문서화
@@ -301,6 +417,8 @@ handler.handle()
 | DRY | ✅/⚠️ |
 | SOLID | ✅/⚠️ |
 | Complexity | ✅/⚠️ |
+| Pattern Consistency 🆕 | ✅/⚠️ |
+| Test Support 🆕 | ✅/⚠️ |
 | 문서화 | ✅/⚠️ |
 
 **등급 기준**:
@@ -355,4 +473,5 @@ handler.handle()
 ---
 
 **Created:** 2026-01-28
-**Version:** 1.0
+**Updated:** 2026-01-29
+**Version:** 1.1 (PR #7360, #7361 피드백 반영: Pattern Consistency, Test Support 체커 추가)

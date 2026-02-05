@@ -1,11 +1,11 @@
 ---
 name: ai-dev.work-check
-description: 6개 병렬 버그 체커로 구현된 코드의 버그를 탐색. "버그 검사", "work check", "워크 체크" 요청 시 활성화.
+description: 10개 병렬 버그 체커로 구현된 코드의 버그를 탐색. "버그 검사", "work check", "워크 체크" 요청 시 활성화.
 ---
 
 # Skill: ai-dev.work-check
 
-6개 전문화된 버그 체커가 병렬로 구현된 코드를 검사합니다.
+10개 전문화된 버그 체커가 병렬로 구현된 코드를 검사합니다.
 
 ---
 
@@ -24,7 +24,7 @@ description: 6개 병렬 버그 체커로 구현된 코드의 버그를 탐색. 
 | 항목 | ai-dev.work-check | ai-dev.review |
 |------|-------------------|---------------|
 | **목적** | 버그 사전 탐지 | 최종 승인 판정 |
-| **방식** | 6개 전문 체커 병렬 | 종합 리뷰 |
+| **방식** | 10개 전문 체커 병렬 | 종합 리뷰 |
 | **초점** | 기술적 버그 | 비즈니스 규칙 + 기술 |
 | **출력** | 버그 리포트 + 재현 시나리오 | 승인/변경요청 |
 
@@ -48,7 +48,7 @@ description: 6개 병렬 버그 체커로 구현된 코드의 버그를 탐색. 
 │  [Step 1] 문서 및 코드 로드                                      │
 │  spec.md + plan.md + 변경된 코드                                │
 │                                                                 │
-│  [Step 2] 6개 Bug Checkers 병렬 실행                            │
+│  [Step 2] 10개 Bug Checkers 병렬 실행                           │
 │  ┌────────────┬────────────┬────────────┐                      │
 │  │ Edge Case  │ Race       │ State      │                      │
 │  │ Hunter     │ Condition  │ Corruption │                      │
@@ -57,7 +57,13 @@ description: 6개 병렬 버그 체커로 구현된 코드의 버그를 탐색. 
 │  │ Memory     │ Input      │ Regression │                      │
 │  │ Leak       │ Validation │ Detector   │                      │
 │  │ Hunter     │ Checker    │            │                      │
-│  └─────┬──────┴─────┬──────┴─────┬──────┘                      │
+│  ├────────────┼────────────┼────────────┤                      │
+│  │ Localiz-   │ Platform   │ UX         │  🆕 v1.1             │
+│  │ ation      │ Compat-    │ Feedback   │                      │
+│  │ Checker    │ ibility    │ Checker    │                      │
+│  ├────────────┴────────────┴────────────┤                      │
+│  │  Rx Race Condition Checker 🆕 v1.2   │                      │
+│  └─────┬────────────────────────────────┘                      │
 │        └────────────┼────────────┘                              │
 │                     ▼                                           │
 │  [Step 3] Bug Triage                                            │
@@ -70,7 +76,12 @@ description: 6개 병렬 버그 체커로 구현된 코드의 버그를 탐색. 
 
 ---
 
-## 6개 Bug Checkers
+## 10개 Bug Checkers
+
+> **v1.1 추가**: Localization Checker, Platform Compatibility Checker, UX Feedback Checker
+> (PR #7360, #7361 CodeRabbit/qazqaz1000 리뷰 피드백 반영)
+>
+> **v1.2 추가**: Rx Race Condition Checker (grepai trace 활용, RxSwift/ReactorKit 경쟁 조건 탐지)
 
 ### 1. Edge Case Hunter (엣지 케이스)
 
@@ -103,16 +114,42 @@ description: 6개 병렬 버그 체커로 구현된 코드의 버그를 탐색. 
 - 여러 스레드 동시 접근 시나리오
 - 데드락 가능 조건
 - Main thread에서 UI 업데이트
+- **[RxSwift/ReactorKit]** viewDidLoad Action 순서 vs 실행 순서
+- **[RxSwift/ReactorKit]** 같은 State 필드를 변경하는 동시 Action
+- **[RxSwift/ReactorKit]** 스케줄러 컨텍스트 (MainScheduler.instance vs asyncInstance)
 
 **프롬프트 요약**:
 ```
 동시성 관련 버그를 찾으세요:
+
+[GCD/Swift Concurrency]
 - 공유 상태에 여러 스레드가 접근하나요?
 - async 작업의 순서가 보장되나요?
 - UI 업데이트가 Main thread에서 이루어지나요?
 - 데드락 가능성이 있나요?
+- 특히 @MainActor, DispatchQueue, Task 사용을 확인하세요.
 
-특히 @MainActor, DispatchQueue, Task 사용을 확인하세요.
+[RxSwift/ReactorKit] (grepai trace 활용 권장)
+- viewDidLoad에서 여러 Action이 발생하나요?
+  → bind 선언 순서 vs 실제 실행 순서 구분
+  → 스케줄러 없는 bind는 동기적으로 순차 실행
+  → observe(on: MainScheduler.asyncInstance)는 비동기 실행, 순서 미보장
+
+- 같은 State 필드를 변경하는 여러 Action이 있나요?
+  → Reactor.reduce에서 충돌 가능성 분석
+  → Observable.merge 사용 시 실행 순서 미보장
+  → Observable.concat 사용 시 순차 실행
+
+- 스케줄러 컨텍스트 분석:
+  → MainScheduler.instance: 동기적 Main thread
+  → MainScheduler.asyncInstance: 비동기적 Main thread (순서 미보장)
+  → observe(on:) 없는 경우: 이전 스케줄러 컨텍스트 유지
+
+확정적 판단 기준:
+✅ P0 확정: asyncInstance로 같은 State 동시 변경 확인됨
+✅ P1 확정: merge 내 순서 의존 코드 발견
+🟡 P2 주의: concat 내 비동기 API 호출 결과 의존
+❌ 안전: concat으로 순차 처리, 단일 State 필드 변경
 ```
 
 ### 3. State Corruption Finder (상태 오염)
@@ -200,6 +237,182 @@ retain cycle이 발생할 수 있는 구조를 식별하세요.
 Grep으로 변경된 함수/클래스 사용처를 모두 확인하세요.
 ```
 
+### 7. Localization Checker (로컬라이징) 🆕
+
+**역할**: 하드코딩된 문자열 및 로컬라이징 누락 탐지
+
+**검증 항목**:
+- UI에 노출되는 하드코딩 문자열
+- NSLocalizedString 미사용
+- Localized 구조체 미사용
+- 다국어 지원 누락
+
+**프롬프트 요약**:
+```
+로컬라이징 문제를 찾으세요:
+- 사용자에게 보이는 문자열이 하드코딩되어 있나요?
+- NSLocalizedString 또는 Localized 구조체를 사용했나요?
+- 버튼 텍스트, 레이블, 알림 메시지가 로컬라이징되어 있나요?
+
+AGENTS.md의 Localization 규칙:
+- 문자열 하드코딩 금지
+- Localized 구조체 내에 NSLocalizedString으로 정의
+```
+
+### 8. Platform Compatibility Checker (플랫폼 호환성) 🆕
+
+**역할**: iOS 버전 및 iPad 멀티씬 호환성 검증
+
+**검증 항목**:
+- iOS 15+ API 사용 시 @available 체크
+- UIApplication.shared.keyWindow (deprecated) 사용
+- currentKeyWindow가 iPad 멀티윈도우에서 올바르게 동작하는지
+- connectedScenes 순회 방식 vs first 사용
+- Scene-based lifecycle 대응
+
+**프롬프트 요약**:
+```
+플랫폼 호환성 문제를 찾으세요:
+- deprecated API를 사용하고 있나요? (keyWindow 등)
+- iPad 멀티윈도우/분할화면에서 문제가 발생할 수 있나요?
+- connectedScenes.first 대신 compactMap으로 활성 씬을 찾나요?
+- iOS 버전별 분기가 필요한 API를 무조건 호출하나요?
+
+특히 UIApplication.shared.currentKeyWindow 사용처를 확인하세요.
+```
+
+### 9. UX Feedback Checker (사용자 피드백) 🆕
+
+**역할**: 실패 시 사용자 피드백 방식 검증
+
+**검증 항목**:
+- API 실패 시 사용자에게 알림 여부
+- 조용한 실패(silent failure) vs 명시적 에러 메시지
+- 로딩 상태 표시 여부
+- 네트워크 오류 시 재시도 옵션
+- 딥링크/스킴 실패 시 fallback 동작
+
+**프롬프트 요약**:
+```
+UX 피드백 문제를 찾으세요:
+- API 호출 실패 시 사용자에게 어떤 피드백을 주나요?
+- 조용히 실패하는 경우가 있나요? (의도적인지 확인 필요)
+- 로딩 인디케이터가 표시되나요?
+- 에러 발생 시 사용자가 무엇이 잘못됐는지 알 수 있나요?
+- 딥링크 실패 시 적절한 fallback이 있나요?
+
+PM/기획과 협의가 필요한 UX 결정을 명시하세요.
+```
+
+### 10. Rx Race Condition Checker (Rx 경쟁 조건) 🆕
+
+**역할**: RxSwift/ReactorKit 환경에서 타이밍 이슈 및 경쟁 조건 탐지
+
+**검증 항목**:
+- viewDidLoad Action 순서 vs 실행 순서 불일치
+- 같은 State 필드를 변경하는 동시 Action
+- 스케줄러 컨텍스트 누락/오용
+- Observable.merge 내 순서 의존성
+- 자식 Reactor로의 action.onNext 타이밍
+
+**분석 도구** (grepai 활용 권장):
+```bash
+# 1. grepai trace로 호출 그래프 생성
+grepai trace callees "viewDidLoad" --json --depth 2
+grepai trace graph "{ActionName}" --json --depth 3
+
+# 2. grepai search로 의미 기반 충돌 탐색
+grepai search "multiple actions modify same state field" --json
+
+# 3. Grep fallback (grepai 사용 불가 시)
+Grep "rx\.viewDidLoad" {ViewController}.swift
+Grep "Observable\.merge\|Observable\.concat" {Reactor}.swift
+```
+
+**프롬프트 요약**:
+```
+RxSwift/ReactorKit 경쟁 조건을 분석하세요:
+
+[viewDidLoad 분석] - grepai trace callees 활용
+1. rx.viewDidLoad에 bind된 모든 Action 나열
+2. 각 bind의 스케줄러 확인 (없으면 "동기")
+3. 실행 순서 예측:
+   - 스케줄러 없음: bind 선언 순서대로 동기 실행
+   - asyncInstance: 비동기 실행, 순서 미보장
+
+[State 충돌 분석] - grepai trace graph 활용
+1. Reactor.reduce에서 각 Mutation이 변경하는 State 필드 추출
+2. 같은 필드를 변경하는 Mutation 쌍 식별
+3. 해당 Mutation을 발생시키는 Action 추적
+4. Action들이 동시에 호출될 수 있는지 확인
+
+[확정적 버그 판단] - 그래프 분석 기반
+- P0: asyncInstance로 같은 State 동시 변경 **그래프에서 확인됨**
+- P1: merge 내 순서 의존 코드 **경로 추적으로 발견**
+- P2: 스케줄러 명시 없이 비동기 API 결과로 UI 업데이트
+```
+
+**출력 형식**:
+```markdown
+### Rx Race Condition 분석 결과
+
+#### viewDidLoad Action 흐름
+[동기 실행]
+1. .loadData (L436)
+
+[비동기 실행 - 순서 미보장]
+2. .loadExistTempFile (L474) - asyncInstance
+
+#### State 충돌 위험
+| State 필드 | Action A | Action B | 판정 |
+|-----------|----------|----------|------|
+| writingModel | .loadData | .setContent | 🟡 P2 |
+
+#### 스케줄러 이슈
+| 위치 | 문제 | 심각도 |
+|------|------|--------|
+| L674 | asyncInstance 후 State 의존 코드 | P1 |
+```
+
+**Neo4j 그래프 기반 확정적 판단** (선택적):
+
+Neo4j MCP 서버 (`neo4j-code-graph`) 연결 시 더 정확한 분석이 가능합니다.
+
+```bash
+# Reactor 워크플로우 조회
+mcp__neo4j-code-graph__neo4j_trace_workflow(reactor_name: "{Reactor명}")
+
+# 결과 예시
+{
+  "reactor_files": [...],
+  "workflows": [
+    {"action": "login", "mutation": "setLoading", "state_field": "isLoading"},
+    {"action": "autoLogin", "mutation": "setLoading", "state_field": "isLoading"}
+  ],
+  "race_condition_risks": [
+    {"state_field": "isLoading", "competing_actions": ["login", "autoLogin"], "risk": "P1"}
+  ]
+}
+```
+
+**Neo4j 판정 기준**:
+- `race_condition_risks` 반환 시 → **확정적 버그**로 판단
+- grepai 분석과 일치 시 → 확신도 ↑
+- 그래프 없으면 → 기존 grepai/Grep 분석만 사용
+
+**Neo4j 출력 형식**:
+```markdown
+#### Rx Race Condition (Neo4j 확정)
+
+✅ **그래프 분석 확정**: {State 필드}에 {N}개 Action 경쟁
+- 경로 1: {action1} → {mutation1} → {state_field}
+- 경로 2: {action2} → {mutation2} → {state_field}
+
+| State 필드 | 경쟁 Action | 판정 | 근거 |
+|-----------|------------|------|------|
+| {필드} | {actions} | P1 확정 | Neo4j + grepai |
+```
+
 ---
 
 ## 심각도 분류 (P0-P3)
@@ -244,6 +457,10 @@ Grep으로 변경된 함수/클래스 사용처를 모두 확인하세요.
 | Memory Leak | N | N | N | N | N |
 | Input Validation | N | N | N | N | N |
 | Regression | N | N | N | N | N |
+| Localization 🆕 | N | N | N | N | N |
+| Platform Compat 🆕 | N | N | N | N | N |
+| UX Feedback 🆕 | N | N | N | N | N |
+| Rx Race Condition 🆕 | N | N | N | N | N |
 | **총계** | **N** | **N** | **N** | **N** | **N** |
 
 ---
@@ -357,4 +574,5 @@ Grep으로 변경된 함수/클래스 사용처를 모두 확인하세요.
 ---
 
 **Created:** 2026-01-28
-**Version:** 1.0
+**Updated:** 2026-01-29
+**Version:** 1.1 (PR #7360, #7361 피드백 반영: Localization, Platform Compat, UX Feedback 체커 추가)

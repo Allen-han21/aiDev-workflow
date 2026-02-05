@@ -20,3 +20,14 @@ credentials.json
 # Temp files
 *.tmp
 *.bak
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.venv311/
+venv/
+*.egg-info/
+dist/
+build/

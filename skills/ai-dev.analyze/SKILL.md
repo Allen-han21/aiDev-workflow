@@ -222,6 +222,116 @@ mcp__apple-docs__search_apple_docs(query: "{API명}")
 - {공식 문서에서 확인된 제약사항}
 ```
 
+### Step 3.4: Rx 데이터 흐름 분석 (ReactorKit 프로젝트)
+
+ReactorKit 기반 프로젝트에서 Action → Mutation → State 흐름을 분석합니다.
+
+#### 3.4.1 grepai 그래프 검색으로 호출 관계 추출 (권장)
+
+**grepai trace 명령어**:
+```bash
+# viewDidLoad에서 호출하는 모든 Action 추적
+grepai trace callees "viewDidLoad" --json --depth 2
+
+# 특정 Action의 호출 그래프 (Action → Mutation → State)
+grepai trace graph "{ActionName}" --json --depth 3
+
+# 같은 State 필드를 변경하는 코드 의미 검색
+grepai search "{StateField} state mutation" --json --limit 10
+```
+
+**grepai 활용 워크플로우**:
+```
+[1단계: 호출 관계 파악]
+grepai trace callees "viewDidLoad" --json
+  ↓
+  loadData, loadExistTempFile 등 발견
+  ↓
+[2단계: Action → State 영향 그래프]
+grepai trace graph "{ActionName}" --depth 3 --json
+  ↓
+  Action → Mutation → State.field 경로 추출
+  ↓
+[3단계: 충돌 가능 Action 탐색]
+grepai search "same state field mutation" --json
+  ↓
+  같은 필드 변경하는 Action 쌍 식별
+```
+
+#### 3.4.2 Grep 기반 분석 (fallback)
+
+**Grep 명령어** (grepai 사용 불가 시):
+```bash
+Grep "rx\.viewDidLoad" {ViewController}.swift
+Grep "\.bind\(to: reactor\.action\)" {ViewController}.swift
+Grep "observe(on:.*Scheduler" {ViewController}.swift
+Grep "Observable\.merge\|Observable\.concat" {Reactor}.swift
+```
+
+#### 3.4.3 분석 결과 템플릿
+
+**분석 결과 템플릿에 포함 (Step 6):**
+```markdown
+## 3.4 Rx 데이터 흐름 분석
+
+### viewDidLoad Action 순서
+| 순서 | 라인 | Action | 스케줄러 | 실행 시점 |
+|------|------|--------|----------|----------|
+| 1 | L{라인} | .{Action명} | (없음) | 동기/즉시 |
+| 2 | L{라인} | .{Action명} | asyncInstance | 비동기 |
+
+### Action → State 영향 관계
+| Action | 호출 경로 | 변경 State 필드 | 동시 호출 가능 Action | 위험도 |
+|--------|----------|----------------|---------------------|--------|
+| .{Action} | mutate→{...}→{Mutation} | {State.field} | .{OtherAction} | 🟡/❌ |
+
+### 스케줄러 사용 현황
+| 파일:라인 | 스케줄러 | 용도 |
+|----------|----------|------|
+| L{라인} | MainScheduler.instance | UI 업데이트 보장 |
+| L{라인} | MainScheduler.asyncInstance | 비동기 실행 (순서 미보장 주의) |
+```
+
+#### 3.4.4 Neo4j 아키텍처 분석 (선택적)
+
+Neo4j MCP 서버 (`neo4j-code-graph`) 연결 시 그래프 기반 분석을 수행합니다.
+
+**사용 조건**: `mcp__neo4j-code-graph__neo4j_query` 도구가 사용 가능할 때
+
+**분석 도구**:
+```bash
+# 1. 파일 영향도 분석
+mcp__neo4j-code-graph__neo4j_find_impact(file_path: "{변경 예정 파일}")
+
+# 2. Reactor 워크플로우 분석
+mcp__neo4j-code-graph__neo4j_trace_workflow(reactor_name: "{Reactor명}")
+
+# 3. 유사 코드 패턴 조회
+mcp__neo4j-code-graph__neo4j_query(cypher: "
+  MATCH (f:CodeFile)-[r:SIMILAR_TO]-(similar:CodeFile)
+  WHERE f.name CONTAINS '{파일명}'
+  RETURN similar.name, similar.module, r.score
+  ORDER BY r.score DESC LIMIT 5
+")
+```
+
+**출력 템플릿** (Step 6에 추가):
+```markdown
+### 3.4.4 Neo4j 아키텍처 분석
+
+#### 파일 영향도
+| 대상 파일 | 위험도 | 유사 파일 수 | 같은 모듈 파일 수 |
+|-----------|--------|-------------|-----------------|
+| {파일} | HIGH/MEDIUM/LOW | N | N |
+
+#### Race Condition 위험 (그래프 기반)
+| State 필드 | 경쟁 Action | 위험도 | 근거 |
+|-----------|------------|--------|------|
+| {필드} | {actions} | P1 확정 | Neo4j workflow 분석 |
+```
+
+**Fallback**: Neo4j 연결 실패 시 기존 grepai/Grep 분석만 수행 (영향 없음)
+
 ### Step 3.5: Android 코드 참조 (선택적)
 
 동일 기능이 Android에 이미 구현되어 있다면 참조하여 비교/보완:
